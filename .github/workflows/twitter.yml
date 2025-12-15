@@ -2,7 +2,7 @@ name: Auto Car Bot
 
 on:
   schedule:
-  # Runs from 6 AM to 9 PM UTC (16 times total per day)
+    # Runs from 6 AM to 9 PM UTC
     - cron: '0 6-21 * * *' 
   workflow_dispatch:
 
@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetches full history to avoid git errors
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -37,16 +39,25 @@ jobs:
         run: node index.js
 
       - name: Save Bot History
-        env: 
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "CarBot"
           git config --global user.email "bot@github.com"
           
-          # Force authentication using the token
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          
+          # Stage the history file
           git add posted_history.txt
           
-          # Check for changes and push; change 'main' to 'master' if needed
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update history" && git push origin HEAD:main)
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to save."
+          else
+            echo "Changes detected. Committing..."
+            git commit -m "Update history"
+            
+            # Pull latest changes to avoid conflicts
+            git pull origin ${{ github.ref_name }} --rebase
+            
+            # Push to the current branch (dynamically detects main or master)
+            git push origin HEAD:${{ github.ref_name }}
+          fi
