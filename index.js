@@ -91,9 +91,10 @@ async function generateTweets(carName) {
 // --- 3. GET IMAGES (GOOGLE) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
+  console.log("📸 Fetching images for:", carName);
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: { q: `${carName} car press kit wallpaper 4k`, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", num: 4 }
+      params: { q: `${carName} car press kit wallpaper 4k`, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", num: 2 }
     });
     const paths = [];
     const items = res.data.items || [];
@@ -101,7 +102,7 @@ async function getImages(carName) {
     for (let i = 0; i < items.length; i++) {
       try {
         const imgPath = path.join(__dirname, `temp_${i}.jpg`);
-        const response = await axios({ url: items[i].link, method: "GET", responseType: "stream", timeout: 5000 });
+        const response = await axios({ url: items[i].link, method: "GET", responseType: "stream", timeout: 10000 });
         await new Promise((resolve, reject) => {
           const w = fs.createWriteStream(imgPath);
           response.data.pipe(w);
@@ -109,10 +110,13 @@ async function getImages(carName) {
           w.on("error", reject);
         });
         paths.push(imgPath);
-      } catch (e) {}
+      } catch (e) { console.error(`Failed to download image ${i}: ${e.message}`); }
     }
     return paths;
-  } catch (e) { return []; }
+  } catch (e) { 
+    console.error("Image Search Failed:", e.message);
+    return []; 
+  }
 }
 
 // --- MAIN RUNNER ---
@@ -124,14 +128,13 @@ async function run() {
   if (!topic) topic = BACKUP_TOPICS[Math.floor(Math.random() * BACKUP_TOPICS.length)];
   console.log(`🏎️ Topic: ${topic}`);
 
-  // Generate
+  // Generate Content
   const tweets = await generateTweets(topic);
   const images = await getImages(topic);
   const sessionId = generateSessionId();
 
   try {
-    // --- FIX: REMOVED LOGIN CHECK (client.v2.me) FOR FREE TIER COMPATIBILITY ---
-    console.log("✅ Starting Tweet process... (Skipping login check)");
+    console.log("✅ Starting Tweet process...");
 
     let prevId = null;
     for (let i = 0; i < tweets.length; i++) {
@@ -144,23 +147,26 @@ async function run() {
       if (i === 0 && images.length > 0) {
         for (const img of images) {
           try {
+            console.log(`📤 Uploading image: ${img}`);
             const mediaId = await client.v1.uploadMedia(img);
             mediaIds.push(mediaId);
           } catch (e) {
-            console.error(`Media Upload Error (Image ${i}):`, e.message);
+            console.error(`⚠️ Image Upload Failed (Skipping Image): ${e.message}`);
           }
         }
+        // Limit to 4 images per tweet
         mediaIds = mediaIds.slice(0, 4);
       }
 
-      // Post
+      // Post Tweet
       const params = { text: text };
-      if (mediaIds.length) params.media = { media_ids: mediaIds };
+      if (mediaIds.length > 0) params.media = { media_ids: mediaIds };
       if (prevId) params.reply = { in_reply_to_tweet_id: prevId };
 
+      console.log(`🐦 Posting Tweet ${i+1}...`);
       const resp = await client.v2.tweet(params);
       prevId = resp.data.id;
-      console.log(`   Tweet ${i+1} Posted. ID: ${prevId}`);
+      console.log(`   Tweet Posted. ID: ${prevId}`);
     }
 
     saveHistory(topic);
@@ -169,7 +175,7 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    // DOOMSDAY PROTOCOL
+    // DOOMSDAY PROTOCOL (Fallback)
     try {
       console.log("☢️ Attempting Doomsday Tweet...");
       const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
@@ -180,8 +186,10 @@ async function run() {
     }
   }
 
-  // Cleanup
-  images.forEach(p => { if (fs.existsSync(p)) fs.unlinkSync(p); });
+  // Cleanup Images
+  images.forEach(p => { 
+    try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch(e) {} 
+  });
 }
 
 run();
