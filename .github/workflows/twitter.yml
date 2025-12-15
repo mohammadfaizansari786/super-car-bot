@@ -41,4 +41,5 @@ jobs:
           git config --global user.name "CarBot"
           git config --global user.email "bot@github.com"
           git add posted_history.txt
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update history" && git push)
+          # The fix: Check for changes and push explicitly to origin HEAD:main
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update history" && git push origin HEAD:main)
