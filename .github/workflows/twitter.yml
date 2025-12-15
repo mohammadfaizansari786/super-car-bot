@@ -37,9 +37,16 @@ jobs:
         run: node index.js
 
       - name: Save Bot History
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "CarBot"
           git config --global user.email "bot@github.com"
+          
+          # Force authentication using the token
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          
           git add posted_history.txt
-          # The fix: Check for changes and push explicitly to origin HEAD:main
+          
+          # Check for changes and push; change 'main' to 'master' if needed
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update history" && git push origin HEAD:main)
