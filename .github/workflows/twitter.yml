@@ -2,8 +2,9 @@ name: Auto Car Bot
 
 on:
   schedule:
+    # Runs from 6 AM to 9 PM UTC (16 times total per day)
     - cron: '0 6-21 * * *' 
-  workflow_dispatch:
+  workflow_dispatch: # Allows you to run it manually anytime
 
 permissions:
   contents: write
@@ -17,6 +18,17 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      # MODIFIED STEP: Short Delay (1-2 minutes)
+      # Only runs on schedule. Manual runs are still instant.
+      - name: Delay Post
+        if: github.event_name == 'schedule'
+        run: |
+          echo "⏳ Waiting 1-2 minutes before posting..."
+          # Generate random seconds between 60 and 120
+          DELAY=$((60 + RANDOM % 61))
+          echo "Sleeping for ${DELAY} seconds..."
+          sleep $DELAY
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -44,17 +56,20 @@ jobs:
           git config --global user.name "CarBot"
           git config --global user.email "bot@github.com"
           
-          # FIX: Ensure file exists so git add doesn't fail
+          # Ensure file exists
           touch posted_history.txt
           
           git add posted_history.txt
           
-          # Only commit/push if there are actual changes
+          # Check for changes
           if git diff --staged --quiet; then
             echo "No changes to save."
           else
             echo "Changes detected. Committing..."
             git commit -m "Update history"
+            
+            # Pull latest changes to avoid conflicts and push
             git pull origin ${{ github.ref_name }} --rebase
             git push origin HEAD:${{ github.ref_name }}
           fi
+          
