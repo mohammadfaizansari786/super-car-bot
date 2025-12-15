@@ -2,7 +2,7 @@ name: Auto Car Bot
 
 on:
   schedule:
-    - cron: '15 * * * *' # Runs at minute 15 of every hour
+    - cron: '0 6-21 * * *' # Runs at minute 15 of every hour
   workflow_dispatch:
 
 permissions:
