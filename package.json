@@ -1,0 +1,14 @@
+{
+  "name": "super-car-bot",
+  "version": "2.0.0",
+  "description": "Fail-Safe Twitter Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.3.1",
+    "twitter-api-v2": "^1.16.1",
+    "axios": "^1.6.8"
+  }
+}
