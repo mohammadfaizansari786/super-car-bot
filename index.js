@@ -6,10 +6,10 @@ const path = require("path");
 const crypto = require("crypto");
 
 // --- CONFIGURATION ---
-const MAX_LENGTH = 240;
+const MAX_LENGTH = 280; // Increased to Twitter's max
 const HISTORY_FILE = "posted_history.txt";
 
-// --- EXPANDED LIBRARY (NEW) ---
+// --- EXPANDED LIBRARY ---
 const WIKI_CATEGORIES = [
   "Category:Supercars", 
   "Category:Hypercars",
@@ -99,18 +99,19 @@ async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    const prompt = `Write a 3-part viral Twitter thread about '${carName}'.
+    // UPDATED PROMPT: Demands longer, richer content
+    const prompt = `Write a detailed 3-part viral Twitter thread about the '${carName}'.
     
     Structure:
-    Tweet 1: Hook/Intro + 1 relevant hashtag.
-    Tweet 2: Specs/Facts (Bullet points).
-    Tweet 3: Legacy/Conclusion + LIST OF 5-8 VIRAL HASHTAGS.
+    Tweet 1: A captivating Hook/Intro with rich description. Why is this car legendary? (Use ~250 chars).
+    Tweet 2: Technical Specs & Mind-Blowing Facts. Use bullet points. Be specific about HP, Top Speed, or Engine. (Use ~250 chars).
+    Tweet 3: Its Legacy, cultural impact, or why it matters today. End with 5-8 VIRAL HASHTAGS. (Use ~250 chars).
 
     Rules:
     - Separate tweets strictly with '|||'.
-    - Max ${MAX_LENGTH} chars per tweet.
-    - No markdown bolding.
-    - hashtags must be popular (e.g., #Cars #Supercars #Engineering).`;
+    - Use Emoji to make it pop.
+    - Max ${MAX_LENGTH} chars per tweet (Make them long!).
+    - No markdown bolding (no **text**).`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -128,8 +129,8 @@ async function generateTweets(carName) {
   // Fallback
   console.log("⚠️ Using Fallback Template.");
   return [
-    `Legendary Machine: ${carName} 🏎️\n\nA masterclass in automotive engineering and design.\n\n(Thread 🧵) #Cars`,
-    `The ${carName} is defined by its incredible performance and soul-stirring sound. 🏁`,
+    `Legendary Machine: ${carName} 🏎️\n\nA masterclass in automotive engineering and design. The way this machine dominates the road is unlike anything else in its class.\n\n(Thread 🧵) #Cars`,
+    `The ${carName} is defined by its incredible performance and soul-stirring sound. 🏁\n\n• Engine: High-Revving Masterpiece\n• Speed: Blisteringly Fast\n• Design: Timeless`,
     `Is the ${carName} in your dream garage? 👇\n\n#${carName.replace(/\s/g, '')} #Supercars #Automotive #DreamCar #CarLovers #Motorsport #Legends`
   ];
 }
