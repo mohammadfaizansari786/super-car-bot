@@ -6,42 +6,24 @@ const path = require("path");
 const crypto = require("crypto");
 
 // --- CONFIGURATION ---
-const MAX_LENGTH = 280; // Increased to Twitter's max
+const MAX_LENGTH = 280;
 const HISTORY_FILE = "posted_history.txt";
 
 // --- EXPANDED LIBRARY ---
 const WIKI_CATEGORIES = [
-  "Category:Supercars", 
-  "Category:Hypercars",
-  "Category:Sports_cars", 
-  "Category:Grand_tourers", 
-  "Category:Rally_cars",
-  "Category:Group_B_cars",
-  "Category:Le_Mans_prototypes",
-  "Category:Concept_cars",
-  "Category:Homologation_specials",
-  "Category:V12_engine_automobiles"
+  "Category:Supercars", "Category:Hypercars", "Category:Sports_cars", 
+  "Category:Grand_tourers", "Category:Rally_cars", "Category:Group_B_cars",
+  "Category:Le_Mans_prototypes", "Category:Concept_cars", "Category:Homologation_specials"
 ];
 
 const BACKUP_TOPICS = [
-  // The Holy Trinity
-  "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari",
-  // 90s Legends
-  "McLaren F1", "Ferrari F40", "Porsche 959", "Bugatti EB110", "Jaguar XJ220", "Mercedes-Benz CLK GTR", "Porsche 911 GT1", "Nissan R390 GT1",
-  // Modern Hypercars
-  "Bugatti Chiron", "Koenigsegg Jesko", "Pagani Huayra", "Aston Martin Valkyrie", "Mercedes-AMG One", "Rimac Nevera", "Lotus Evija", "Hennessey Venom F5", "SSC Tuatara",
-  // JDM Legends
-  "Nissan Skyline GT-R R34", "Mazda 787B", "Toyota Supra MK4", "Honda NSX-R", "Lexus LFA", "Subaru Impreza 22B", "Mitsubishi Lancer Evolution VI",
-  // Italian Icons
-  "Lamborghini Countach", "Lamborghini Miura", "Ferrari Enzo", "Ferrari F50", "Pagani Zonda Cinque", "Lamborghini Diablo GT", "Alfa Romeo 33 Stradale", "Lancia Stratos", "Maserati MC12",
-  // German Engineering
-  "Porsche Carrera GT", "Mercedes-Benz 300SL Gullwing", "BMW M1", "Audi Quattro S1", "BMW E46 M3 GTR", "Porsche 917K", "Mercedes-Benz SLR McLaren",
-  // American Muscle/Super
-  "Ford GT40", "Shelby Cobra 427", "Dodge Viper ACR", "Chevrolet Corvette C8 Z06", "Saleen S7", "Ford GT (2005)", "Vector W8",
-  // Track Monsters
-  "McLaren Senna", "Ferrari FXX-K", "Aston Martin Vulcan", "Pagani Zonda R", "Lamborghini Sesto Elemento", "KTM X-Bow", "Ariel Atom", "BAC Mono",
-  // Classics
-  "Aston Martin DB5", "Ferrari 250 GTO", "Jaguar E-Type", "Toyota 2000GT", "Lamborghini Miura SV"
+  "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari", "McLaren F1", 
+  "Ferrari F40", "Porsche 959", "Bugatti Chiron", "Koenigsegg Jesko", 
+  "Pagani Huayra", "Aston Martin Valkyrie", "Mercedes-AMG One", "Rimac Nevera", 
+  "Nissan Skyline GT-R R34", "Mazda 787B", "Toyota Supra MK4", "Lexus LFA", 
+  "Lamborghini Countach", "Lamborghini Miura", "Ferrari Enzo", "Pagani Zonda Cinque", 
+  "Porsche Carrera GT", "Mercedes-Benz 300SL Gullwing", "Audi Quattro S1", 
+  "Ford GT40", "Shelby Cobra 427", "Dodge Viper ACR", "McLaren Senna"
 ];
 
 const DOOMSDAY_TWEETS = [
@@ -77,8 +59,13 @@ function generateSessionId() {
   return crypto.randomBytes(4).toString("hex");
 }
 
-// Delay to fix threading
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// SAFETY TRUNCATOR: Ensures tweets never crash the bot
+function safeTruncate(text) {
+  if (text.length <= MAX_LENGTH) return text;
+  return text.substring(0, MAX_LENGTH - 3) + "...";
+}
 
 // --- 1. WEB FETCH (WIKIPEDIA) ---
 async function getWikiCar(history) {
@@ -99,19 +86,19 @@ async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    // UPDATED PROMPT: Demands longer, richer content
-    const prompt = `Write a detailed 3-part viral Twitter thread about the '${carName}'.
+    // Prompt asks for ~260 chars to leave buffer room
+    const prompt = `Write a 3-part viral Twitter thread about the '${carName}'.
     
     Structure:
-    Tweet 1: A captivating Hook/Intro with rich description. Why is this car legendary? (Use ~250 chars).
-    Tweet 2: Technical Specs & Mind-Blowing Facts. Use bullet points. Be specific about HP, Top Speed, or Engine. (Use ~250 chars).
-    Tweet 3: Its Legacy, cultural impact, or why it matters today. End with 5-8 VIRAL HASHTAGS. (Use ~250 chars).
+    Tweet 1: Hook/Intro + 1 relevant hashtag.
+    Tweet 2: Specs/Facts (Bullet points).
+    Tweet 3: Legacy/Conclusion + LIST OF 5-8 VIRAL HASHTAGS.
 
     Rules:
     - Separate tweets strictly with '|||'.
-    - Use Emoji to make it pop.
-    - Max ${MAX_LENGTH} chars per tweet (Make them long!).
-    - No markdown bolding (no **text**).`;
+    - Use Emoji.
+    - Keep each tweet under 260 characters.
+    - No markdown bolding.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -183,9 +170,12 @@ async function run() {
 
     let prevId = null;
     for (let i = 0; i < tweets.length; i++) {
+      // 1. Prepare Text & Truncate
       let text = tweets[i];
       if (i === 2) text += `\n\nRef: ${sessionId}`;
+      text = safeTruncate(text); // Force limit
 
+      // 2. Upload Media (First tweet only)
       let mediaIds = [];
       if (i === 0 && images.length > 0) {
         for (const img of images) {
@@ -200,6 +190,7 @@ async function run() {
         mediaIds = mediaIds.slice(0, 4);
       }
 
+      // 3. Set Params
       const params = { text: text };
       if (mediaIds.length > 0) params.media = { media_ids: mediaIds };
       if (prevId) {
@@ -207,11 +198,13 @@ async function run() {
         console.log(`🔗 Linking to thread parent: ${prevId}`);
       }
 
-      console.log(`🐦 Posting Tweet ${i+1}...`);
+      // 4. Post
+      console.log(`🐦 Posting Tweet ${i+1} (Length: ${text.length})...`);
       const resp = await client.v2.tweet(params);
       prevId = resp.data.id;
       console.log(`   Tweet Posted. ID: ${prevId}`);
 
+      // 5. Wait
       if (i < tweets.length - 1) {
         console.log("⏳ Waiting 3s for thread propagation...");
         await wait(3000); 
@@ -224,6 +217,7 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
+    // DOOMSDAY PROTOCOL (Fallback if Main Loop fails)
     try {
       console.log("☢️ Attempting Doomsday Tweet...");
       const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
@@ -231,6 +225,7 @@ async function run() {
     } catch (e) { console.error("Critical Failure:", e.message); }
   }
 
+  // Cleanup
   images.forEach(p => { 
     try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch(e) {} 
   });
