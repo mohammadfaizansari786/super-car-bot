@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 const { TwitterApi } = require("twitter-api-v2");
 const axios = require("axios");
 const fs = require("fs");
@@ -24,13 +24,17 @@ const DOOMSDAY_TWEETS = [
 ];
 
 // --- AUTHENTICATION ---
+// Initialize Twitter Client
 const client = new TwitterApi({
   appKey: process.env.API_KEY,
   appSecret: process.env.API_SECRET,
   accessToken: process.env.ACCESS_TOKEN,
   accessSecret: process.env.ACCESS_SECRET,
 });
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Initialize Gemini 2.5 Client
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 const GOOGLE_KEY = process.env.GOOGLE_SEARCH_API_KEY;
 const CX_ID = process.env.SEARCH_ENGINE_ID;
 
@@ -63,10 +67,11 @@ async function getWikiCar(history) {
   } catch (e) { return null; }
 }
 
-// --- 2. GENERATE CONTENT (GEMINI) ---
+// --- 2. GENERATE CONTENT (GEMINI 2.5) ---
 async function generateTweets(carName) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    console.log(`🤖 Generating content for: ${carName} using Gemini 2.5 Flash...`);
+    
     const prompt = `Write 3 viral tweets about '${carName}'. 
     Tweet 1: Intro (Hook). 
     Tweet 2: Specs (Bullet points). 
@@ -74,13 +79,22 @@ async function generateTweets(carName) {
     Separate tweets strictly with '|||'. 
     Max ${MAX_LENGTH} chars each. No markdown bolding.`;
 
-    const result = await model.generateContent(prompt);
-    const parts = result.response.text().split('|||').map(p => p.trim());
+    // New SDK Syntax
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt
+    });
+
+    const text = response.text; // Access text directly property
+    const parts = text.split('|||').map(p => p.trim());
+    
     if (parts.length === 3) return parts;
   } catch (e) {
     console.error("Gemini Failed:", e.message);
   }
+  
   // Fallback Template
+  console.log("⚠️ Using Fallback Template.");
   return [
     `Legendary Machine: ${carName} 🏎️\n\nA masterclass in automotive engineering and design.\n\n(Thread 🧵)`,
     `The ${carName} is defined by its incredible performance and soul-stirring sound. 🏁`,
@@ -193,4 +207,3 @@ async function run() {
 }
 
 run();
-
