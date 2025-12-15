@@ -130,9 +130,8 @@ async function run() {
   const sessionId = generateSessionId();
 
   try {
-    // Authenticate Check
-    const me = await client.v2.me();
-    console.log(`✅ Logged in as @${me.data.username}`);
+    // --- FIX: REMOVED LOGIN CHECK (client.v2.me) FOR FREE TIER COMPATIBILITY ---
+    console.log("✅ Starting Tweet process... (Skipping login check)");
 
     let prevId = null;
     for (let i = 0; i < tweets.length; i++) {
@@ -147,7 +146,9 @@ async function run() {
           try {
             const mediaId = await client.v1.uploadMedia(img);
             mediaIds.push(mediaId);
-          } catch (e) {}
+          } catch (e) {
+            console.error(`Media Upload Error (Image ${i}):`, e.message);
+          }
         }
         mediaIds = mediaIds.slice(0, 4);
       }
@@ -159,20 +160,24 @@ async function run() {
 
       const resp = await client.v2.tweet(params);
       prevId = resp.data.id;
-      console.log(`   Tweet ${i+1} Posted.`);
+      console.log(`   Tweet ${i+1} Posted. ID: ${prevId}`);
     }
 
     saveHistory(topic);
     console.log("✅ Thread Complete.");
 
   } catch (error) {
-    console.error("❌ Main Error:", error.message);
+    console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
+    
     // DOOMSDAY PROTOCOL
     try {
+      console.log("☢️ Attempting Doomsday Tweet...");
       const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
       await client.v2.tweet(doom);
       console.log("☢️ Doomsday Tweet Sent.");
-    } catch (e) { console.error("Critical Failure."); }
+    } catch (e) { 
+        console.error("Critical Failure - Doomsday also failed:", e.message); 
+    }
   }
 
   // Cleanup
@@ -180,3 +185,4 @@ async function run() {
 }
 
 run();
+
