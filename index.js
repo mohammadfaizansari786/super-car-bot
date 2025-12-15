@@ -26,7 +26,6 @@ const WIKI_CATEGORIES = [
   "Category:Mercedes-AMG_vehicles", "Category:Audi_Sport_vehicles"
 ];
 
-// --- BACKUP LIST ---
 const BACKUP_TOPICS = [
   "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari",
   "McLaren F1", "Ferrari F40", "Porsche 959", "Bugatti EB110", "Jaguar XJ220", 
@@ -89,7 +88,7 @@ function cleanTitle(title) {
   return title.replace(/ \(.+\)$/, "").trim();
 }
 
-// --- 1. WEB FETCH (RETRY MODE) ---
+// --- 1. WEB FETCH ---
 async function getWikiCar(history) {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -100,7 +99,8 @@ async function getWikiCar(history) {
       const res = await axios.get(url, {
         params: { 
           action: "query", list: "categorymembers", cmtitle: category, cmlimit: 100, format: "json", origin: "*" 
-        }
+        },
+        headers: { 'User-Agent': 'SuperCarBot/1.0' }
       });
 
       const members = res.data.query.categorymembers || [];
@@ -129,7 +129,7 @@ async function generateTweets(carName) {
     
     Structure:
     Tweet 1: Hook/Intro. Why is this car legendary?
-    Tweet 2: Technical Specs (Bullet points).
+    Tweet 2: Technical Specs (Bullet points) or Cool Facts.
     Tweet 3 (Optional): Legacy.
     
     Ends with 5-8 VIRAL HASHTAGS in the final tweet.
@@ -162,26 +162,40 @@ async function generateTweets(carName) {
   ];
 }
 
-// --- 3. GET IMAGES (STRICT: CAR SPOTTING MODE) ---
+// --- 3. GET IMAGES (MULTI-ANGLE + CONSISTENT STYLE) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
-  console.log("📸 Fetching images for:", carName);
+  console.log("📸 Fetching specific angle images for:", carName);
   
-  // NEW STRATEGY: Positive keywords "car spotting", "car show" force real life photos.
-  // Negative keywords block ads and games.
-  const safeQuery = `"${carName}" (car spotting OR car show OR street photo) -sale -auction -forsale -dealer -price -videogame -assetto -forza -gta -render -concept`;
+  const paths = [];
+  
+  // Define 4 specific angles to search for
+  const angleQueries = [
+    { type: "front", query: `"${carName}" front view outdoor car press photo` },
+    { type: "rear",  query: `"${carName}" rear view outdoor car press photo` },
+    { type: "interior", query: `"${carName}" interior cockpit dashboard detail` },
+    { type: "detail", query: `"${carName}" engine exhaust wheel detail macro` }
+  ];
 
-  try {
-    const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: { q: safeQuery, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", num: 2 }
-    });
-    const paths = [];
-    const items = res.data.items || [];
+  // Base exclusion list (No games, no sales)
+  const exclusions = "-game -videogame -assetto -forza -gta -render -concept -sale -auction -forsale -dealer -price -ebay";
+
+  // Run 4 Separate Searches to guarantee variety
+  for (let i = 0; i < angleQueries.length; i++) {
+    const fullQuery = `${angleQueries[i].query} ${exclusions}`;
     
-    for (let i = 0; i < items.length; i++) {
-      try {
-        const imgPath = path.join(__dirname, `temp_${i}.jpg`);
-        const response = await axios({ url: items[i].link, method: "GET", responseType: "stream", timeout: 10000 });
+    try {
+      const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
+        params: { q: fullQuery, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", num: 1 } // Get best result for this angle
+      });
+
+      const items = res.data.items || [];
+      if (items.length > 0) {
+        const imgUrl = items[0].link;
+        const imgPath = path.join(__dirname, `temp_${angleQueries[i].type}_${i}.jpg`);
+        
+        // Download Image
+        const response = await axios({ url: imgUrl, method: "GET", responseType: "stream", timeout: 10000 });
         await new Promise((resolve, reject) => {
           const w = fs.createWriteStream(imgPath);
           response.data.pipe(w);
@@ -189,13 +203,14 @@ async function getImages(carName) {
           w.on("error", reject);
         });
         paths.push(imgPath);
-      } catch (e) { console.error(`Failed to download image ${i}: ${e.message}`); }
+        console.log(`   ✅ Got ${angleQueries[i].type} image.`);
+      }
+    } catch (e) {
+      console.error(`   ⚠️ Failed to fetch ${angleQueries[i].type} image: ${e.message}`);
     }
-    return paths;
-  } catch (e) { 
-    console.error("Image Search Failed:", e.message);
-    return []; 
   }
+
+  return paths;
 }
 
 // --- MAIN RUNNER ---
@@ -226,6 +241,7 @@ async function run() {
       if (i === tweets.length - 1) text += `\n\nRef: ${sessionId}`;
       text = safeTruncate(text);
 
+      // Upload ALL fetched images (up to 4) on the FIRST tweet
       let mediaIds = [];
       if (i === 0 && images.length > 0) {
         for (const img of images) {
@@ -241,9 +257,8 @@ async function run() {
       const params = { text: text };
       if (mediaIds.length > 0) params.media = { media_ids: mediaIds };
       
-      // FIXED THREADING LOGIC
       if (prevId) {
-        params.reply = { in_reply_to_tweet_id: prevId.toString() }; // Force string ID
+        params.reply = { in_reply_to_tweet_id: prevId.toString() };
         console.log(`🔗 Linking to thread parent: ${prevId}`);
       }
 
@@ -257,7 +272,6 @@ async function run() {
         throw new Error("API returned no Tweet ID");
       }
 
-      // INCREASED DELAY TO 10 SECONDS
       if (i < tweets.length - 1) {
         console.log("⏳ Waiting 10s for thread propagation...");
         await wait(10000); 
