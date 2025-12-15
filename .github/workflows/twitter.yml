@@ -2,7 +2,6 @@ name: Auto Car Bot
 
 on:
   schedule:
-    # Runs from 6 AM to 9 PM UTC
     - cron: '0 6-21 * * *' 
   workflow_dispatch:
 
@@ -17,7 +16,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Fetches full history to avoid git errors
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -45,19 +44,17 @@ jobs:
           git config --global user.name "CarBot"
           git config --global user.email "bot@github.com"
           
-          # Stage the history file
+          # FIX: Ensure file exists so git add doesn't fail
+          touch posted_history.txt
+          
           git add posted_history.txt
           
-          # Check if there are changes to commit
+          # Only commit/push if there are actual changes
           if git diff --staged --quiet; then
             echo "No changes to save."
           else
             echo "Changes detected. Committing..."
             git commit -m "Update history"
-            
-            # Pull latest changes to avoid conflicts
             git pull origin ${{ github.ref_name }} --rebase
-            
-            # Push to the current branch (dynamically detects main or master)
             git push origin HEAD:${{ github.ref_name }}
           fi
