@@ -2,9 +2,10 @@ name: Auto Car Bot
 
 on:
   schedule:
-    # Runs 8 times a day (Every 3 hours: Midnight, 3AM, 6AM, 9AM, 12PM, 3PM, 6PM, 9PM UTC)
-    - cron: '0 0,3,6,9,12,15,18,21 * * *'
-  workflow_dispatch: # Allows you to run it manually anytime
+    # Run 4 times a day: 6 AM, 12 PM, 6 PM, 12 AM UTC
+    # 4 runs x 3 tweets = 12 tweets (Safe under the 17 limit)
+    - cron: '0 0,6,12,18 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,12 +20,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Short Delay (1-2 minutes) to mimic human behavior
       - name: Delay Post
         if: github.event_name == 'schedule'
         run: |
           echo "⏳ Waiting 1-2 minutes before posting..."
-          # Generate random seconds between 60 and 120
           DELAY=$((60 + RANDOM % 61))
           echo "Sleeping for ${DELAY} seconds..."
           sleep $DELAY
@@ -54,20 +53,14 @@ jobs:
         run: |
           git config --global user.name "CarBot"
           git config --global user.email "bot@github.com"
-          
-          # Ensure file exists
           touch posted_history.txt
-          
           git add posted_history.txt
-          
-          # Check for changes
           if git diff --staged --quiet; then
             echo "No changes to save."
           else
             echo "Changes detected. Committing..."
             git commit -m "Update history"
-            
-            # Pull latest changes to avoid conflicts and push
             git pull origin ${{ github.ref_name }} --rebase
             git push origin HEAD:${{ github.ref_name }}
           fi
+
