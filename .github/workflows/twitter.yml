@@ -2,8 +2,8 @@ name: Auto Car Bot
 
 on:
   schedule:
-    # Runs from 6 AM to 9 PM UTC (16 times total per day)
-    - cron: '0 6-21 * * *' 
+    # Runs 8 times a day (Every 3 hours: Midnight, 3AM, 6AM, 9AM, 12PM, 3PM, 6PM, 9PM UTC)
+    - cron: '0 0,3,6,9,12,15,18,21 * * *'
   workflow_dispatch: # Allows you to run it manually anytime
 
 permissions:
@@ -19,8 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # MODIFIED STEP: Short Delay (1-2 minutes)
-      # Only runs on schedule. Manual runs are still instant.
+      # Short Delay (1-2 minutes) to mimic human behavior
       - name: Delay Post
         if: github.event_name == 'schedule'
         run: |
@@ -72,4 +71,3 @@ jobs:
             git pull origin ${{ github.ref_name }} --rebase
             git push origin HEAD:${{ github.ref_name }}
           fi
-          
