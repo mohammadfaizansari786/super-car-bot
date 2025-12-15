@@ -124,13 +124,12 @@ async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    // Updated Prompt: Asks for 2 or 3 tweets explicitly
     const prompt = `Write a viral Twitter thread (2 or 3 tweets total) about the '${carName}'.
     
     Structure:
     Tweet 1: A captivating Hook/Intro. Why is this car legendary?
     Tweet 2: Technical Specs (Bullet points) or Cool Facts.
-    Tweet 3 (Optional): If needed, add Legacy & Conclusion. If 2 tweets are enough, combine this with Tweet 2.
+    Tweet 3 (Optional): Legacy & Conclusion. If 2 tweets are enough, combine with Tweet 2.
     
     Ends with 5-8 VIRAL HASHTAGS in the final tweet.
 
@@ -148,13 +147,12 @@ async function generateTweets(carName) {
     const text = response.text;
     const parts = text.split('|||').map(p => p.trim());
     
-    // Allow 2 OR 3 tweets
     if (parts.length >= 2 && parts.length <= 3) return parts;
   } catch (e) {
     console.error("Gemini Failed:", e.message);
   }
   
-  // Fallback (3 Tweets default)
+  // Fallback
   console.log("⚠️ Using Fallback Template.");
   return [
     `Legendary Machine: ${carName} 🏎️\n\nA masterclass in automotive engineering. This machine dominates the road.\n\n(Thread 🧵) #Cars`,
@@ -163,14 +161,16 @@ async function generateTweets(carName) {
   ];
 }
 
-// --- 3. GET IMAGES (STRICT REAL FILTER) ---
+// --- 3. GET IMAGES (STRICT REAL + NO SALES) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   console.log("📸 Fetching images for:", carName);
   
-  // Updated Query: Excludes games, AI, and renders
-  // Adds keywords "real life", "photo"
-  const safeQuery = `"${carName}" real life car photo -game -videogame -assetto -forza -nfs -gta -gran -turismo -screenshot -ai -midjourney -dalle -render -conceptart`;
+  // Updated Query: 
+  // 1. Enforces "real life"
+  // 2. Removes Games/AI (-game, -ai)
+  // 3. Removes Sales/Ads (-sale, -price, -dealer, -auction)
+  const safeQuery = `"${carName}" real life car photo -game -videogame -assetto -forza -nfs -gta -gran -turismo -screenshot -ai -midjourney -dalle -render -conceptart -sale -buy -price -auction -dealer -ebay -craigslist`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -225,7 +225,6 @@ async function run() {
     for (let i = 0; i < tweets.length; i++) {
       let text = tweets[i];
       
-      // Dynamic Ref ID: Adds ID to the LAST tweet (whether it's tweet 2 or 3)
       if (i === tweets.length - 1) text += `\n\nRef: ${sessionId}`;
       text = safeTruncate(text);
 
