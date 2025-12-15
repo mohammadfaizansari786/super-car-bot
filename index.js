@@ -26,6 +26,7 @@ const WIKI_CATEGORIES = [
   "Category:Mercedes-AMG_vehicles", "Category:Audi_Sport_vehicles"
 ];
 
+// --- BACKUP LIST ---
 const BACKUP_TOPICS = [
   "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari",
   "McLaren F1", "Ferrari F40", "Porsche 959", "Bugatti EB110", "Jaguar XJ220", 
@@ -119,7 +120,7 @@ async function getWikiCar(history) {
   return null;
 }
 
-// --- 2. GENERATE CONTENT (FLEXIBLE 2-3 TWEETS) ---
+// --- 2. GENERATE CONTENT (2-3 TWEETS) ---
 async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
@@ -127,9 +128,9 @@ async function generateTweets(carName) {
     const prompt = `Write a viral Twitter thread (2 or 3 tweets total) about the '${carName}'.
     
     Structure:
-    Tweet 1: A captivating Hook/Intro. Why is this car legendary?
-    Tweet 2: Technical Specs (Bullet points) or Cool Facts.
-    Tweet 3 (Optional): Legacy & Conclusion. If 2 tweets are enough, combine with Tweet 2.
+    Tweet 1: Hook/Intro. Why is this car legendary?
+    Tweet 2: Technical Specs (Bullet points).
+    Tweet 3 (Optional): Legacy.
     
     Ends with 5-8 VIRAL HASHTAGS in the final tweet.
 
@@ -161,16 +162,14 @@ async function generateTweets(carName) {
   ];
 }
 
-// --- 3. GET IMAGES (STRICT REAL + NO SALES) ---
+// --- 3. GET IMAGES (STRICT: CAR SPOTTING MODE) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   console.log("📸 Fetching images for:", carName);
   
-  // Updated Query: 
-  // 1. Enforces "real life"
-  // 2. Removes Games/AI (-game, -ai)
-  // 3. Removes Sales/Ads (-sale, -price, -dealer, -auction)
-  const safeQuery = `"${carName}" real life car photo -game -videogame -assetto -forza -nfs -gta -gran -turismo -screenshot -ai -midjourney -dalle -render -conceptart -sale -buy -price -auction -dealer -ebay -craigslist`;
+  // NEW STRATEGY: Positive keywords "car spotting", "car show" force real life photos.
+  // Negative keywords block ads and games.
+  const safeQuery = `"${carName}" (car spotting OR car show OR street photo) -sale -auction -forsale -dealer -price -videogame -assetto -forza -gta -render -concept`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -224,7 +223,6 @@ async function run() {
     let prevId = null;
     for (let i = 0; i < tweets.length; i++) {
       let text = tweets[i];
-      
       if (i === tweets.length - 1) text += `\n\nRef: ${sessionId}`;
       text = safeTruncate(text);
 
@@ -242,19 +240,27 @@ async function run() {
 
       const params = { text: text };
       if (mediaIds.length > 0) params.media = { media_ids: mediaIds };
+      
+      // FIXED THREADING LOGIC
       if (prevId) {
-        params.reply = { in_reply_to_tweet_id: prevId };
+        params.reply = { in_reply_to_tweet_id: prevId.toString() }; // Force string ID
         console.log(`🔗 Linking to thread parent: ${prevId}`);
       }
 
       console.log(`🐦 Posting Tweet ${i+1}/${tweets.length}...`);
       const resp = await client.v2.tweet(params);
-      prevId = resp.data.id;
-      console.log(`   Tweet Posted. ID: ${prevId}`);
+      
+      if (resp.data && resp.data.id) {
+        prevId = resp.data.id;
+        console.log(`   Tweet Posted. ID: ${prevId}`);
+      } else {
+        throw new Error("API returned no Tweet ID");
+      }
 
+      // INCREASED DELAY TO 10 SECONDS
       if (i < tweets.length - 1) {
-        console.log("⏳ Waiting 3s for thread propagation...");
-        await wait(3000); 
+        console.log("⏳ Waiting 10s for thread propagation...");
+        await wait(10000); 
       }
     }
 
@@ -277,3 +283,4 @@ async function run() {
 }
 
 run();
+
