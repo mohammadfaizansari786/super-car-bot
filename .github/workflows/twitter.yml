@@ -2,7 +2,8 @@ name: Auto Car Bot
 
 on:
   schedule:
-    - cron: '0 6-21 * * *' # Runs at minute 15 of every hour
+  # Runs from 6 AM to 9 PM UTC (16 times total per day)
+    - cron: '0 6-21 * * *' 
   workflow_dispatch:
 
 permissions:
