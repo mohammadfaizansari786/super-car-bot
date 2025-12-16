@@ -106,11 +106,12 @@ async function getWikiCar(history) {
       const members = res.data.query.categorymembers || [];
       const valid = members.filter(m => {
         const title = cleanTitle(m.title);
-        // Stricter filtering
+        // Stricter filtering to avoid "List of..." or irrelevant pages
         return !m.title.startsWith("Category:") && 
                !m.title.includes("List of") && 
                !m.title.includes("User:") && 
                !m.title.includes("File:") &&
+               !m.title.includes("Template:") &&
                !history.has(title);
       });
 
@@ -128,7 +129,7 @@ async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    // Improved prompt to force topic consistency
+    // Strict prompt to ensure on-topic content
     const prompt = `Write a viral Twitter thread (2 or 3 tweets total) STRICTLY about the vehicle '${carName}'.
     
     Structure:
@@ -173,9 +174,9 @@ async function getImages(carName) {
   console.log("📸 Fetching specific angle images for:", carName);
   
   const paths = [];
-  const usedUrls = new Set(); // Prevent duplicates
+  const usedUrls = new Set(); // Track used URLs to avoid duplicates
   
-  // Define 4 specific angles
+  // Define 4 specific angles to search for
   const angleQueries = [
     { type: "front", query: `"${carName}" front view outdoor car press photo` },
     { type: "rear",  query: `"${carName}" rear view outdoor car press photo` },
@@ -183,7 +184,7 @@ async function getImages(carName) {
     { type: "detail", query: `"${carName}" engine exhaust wheel detail macro` }
   ];
 
-  // UPDATED Exclusions: Removed toys, models, watermarks
+  // Aggressive exclusions for toys, models, and bad quality images
   const exclusions = "-game -videogame -assetto -forza -gta -render -concept -sale -auction -forsale -dealer -price -ebay -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -remote-control -watermark -stock -alamy -getty -vector -clipart -cartoon";
 
   for (let i = 0; i < angleQueries.length; i++) {
@@ -196,9 +197,9 @@ async function getImages(carName) {
           cx: CX_ID, 
           key: GOOGLE_KEY, 
           searchType: "image", 
-          imgType: "photo",    // Prefer photos over clipart/lineart
-          imgSize: "large",    // Prefer high res
-          num: 5               // Fetch 5 to check for duplicates
+          imgType: "photo",     // Filter: Photos only (no lineart/clipart)
+          imgSize: "large",     // Filter: Large images only
+          num: 10               // Fetch 10 results to find a valid non-duplicate
         } 
       });
 
@@ -206,11 +207,11 @@ async function getImages(carName) {
       if (items.length > 0) {
         let imgUrl = null;
 
-        // Find first image not used
+        // Iterate through results to find the first unused image
         for (const item of items) {
             if (!usedUrls.has(item.link)) {
                 imgUrl = item.link;
-                usedUrls.add(imgUrl);
+                usedUrls.add(imgUrl); // Mark as used
                 break;
             }
         }
@@ -221,15 +222,15 @@ async function getImages(carName) {
             // Download Image
             const response = await axios({ url: imgUrl, method: "GET", responseType: "stream", timeout: 10000 });
             await new Promise((resolve, reject) => {
-            const w = fs.createWriteStream(imgPath);
-            response.data.pipe(w);
-            w.on("finish", resolve);
-            w.on("error", reject);
+              const w = fs.createWriteStream(imgPath);
+              response.data.pipe(w);
+              w.on("finish", resolve);
+              w.on("error", reject);
             });
             paths.push(imgPath);
             console.log(`   ✅ Got ${angleQueries[i].type} image.`);
         } else {
-             console.log(`   ⚠️ All duplicate images for ${angleQueries[i].type}.`);
+            console.log(`   ⚠️ All found images for ${angleQueries[i].type} were duplicates.`);
         }
       }
     } catch (e) {
@@ -278,6 +279,7 @@ async function run() {
             mediaIds.push(mediaId);
           } catch (e) { console.error(`⚠️ Image Upload Failed: ${e.message}`); }
         }
+        // Ensure we don't exceed Twitter's limit of 4
         mediaIds = mediaIds.slice(0, 4);
       }
 
@@ -311,16 +313,16 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    // CRITICAL FIX: Only post Doomsday tweet if the thread hasn't started yet.
-    // This prevents the "third post is a random car" issue.
+    // FIX: Only Doomsday if the thread never started (prevId is null).
+    // This prevents adding a random car tweet to the end of a broken thread.
     if (!prevId) {
         try {
-            console.log("☢️ Attempting Doomsday Tweet (Thread failed to start)...");
+            console.log("☢️ Attempting Doomsday Tweet (Thread start failed)...");
             const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
             await client.v2.tweet(doom);
         } catch (e) { console.error("Critical Failure:", e.message); }
     } else {
-        console.log("⚠️ Thread failed midway. Skipping Doomsday to prevent mismatched topics.");
+        console.log("⚠️ Thread broken midway. Aborting Doomsday to preserve context.");
     }
   }
 
