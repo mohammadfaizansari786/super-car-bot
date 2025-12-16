@@ -106,8 +106,11 @@ async function getWikiCar(history) {
       const members = res.data.query.categorymembers || [];
       const valid = members.filter(m => {
         const title = cleanTitle(m.title);
-        return !m.title.startsWith("Category:") && !m.title.startsWith("List of") && 
-               !m.title.startsWith("User:") && !m.title.startsWith("File:") &&
+        // Stricter filtering
+        return !m.title.startsWith("Category:") && 
+               !m.title.includes("List of") && 
+               !m.title.includes("User:") && 
+               !m.title.includes("File:") &&
                !history.has(title);
       });
 
@@ -125,16 +128,18 @@ async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    const prompt = `Write a viral Twitter thread (2 or 3 tweets total) about the '${carName}'.
+    // Improved prompt to force topic consistency
+    const prompt = `Write a viral Twitter thread (2 or 3 tweets total) STRICTLY about the vehicle '${carName}'.
     
     Structure:
-    Tweet 1: Hook/Intro. Why is this car legendary?
-    Tweet 2: Technical Specs (Bullet points) or Cool Facts.
-    Tweet 3 (Optional): Legacy.
+    Tweet 1: Hook/Intro. Why is this specific car legendary?
+    Tweet 2: Technical Specs (Bullet points) or Cool Facts about '${carName}'.
+    Tweet 3 (Optional): Legacy of '${carName}'.
     
     Ends with 5-8 VIRAL HASHTAGS in the final tweet.
 
     Rules:
+    - Do NOT write about other cars.
     - Separate tweets strictly with '|||'.
     - Use Emoji.
     - Max 260 characters per tweet.
@@ -168,8 +173,9 @@ async function getImages(carName) {
   console.log("📸 Fetching specific angle images for:", carName);
   
   const paths = [];
+  const usedUrls = new Set(); // Prevent duplicates
   
-  // Define 4 specific angles to search for
+  // Define 4 specific angles
   const angleQueries = [
     { type: "front", query: `"${carName}" front view outdoor car press photo` },
     { type: "rear",  query: `"${carName}" rear view outdoor car press photo` },
@@ -177,33 +183,54 @@ async function getImages(carName) {
     { type: "detail", query: `"${carName}" engine exhaust wheel detail macro` }
   ];
 
-  // Base exclusion list (No games, no sales)
-  const exclusions = "-game -videogame -assetto -forza -gta -render -concept -sale -auction -forsale -dealer -price -ebay";
+  // UPDATED Exclusions: Removed toys, models, watermarks
+  const exclusions = "-game -videogame -assetto -forza -gta -render -concept -sale -auction -forsale -dealer -price -ebay -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -remote-control -watermark -stock -alamy -getty -vector -clipart -cartoon";
 
-  // Run 4 Separate Searches to guarantee variety
   for (let i = 0; i < angleQueries.length; i++) {
     const fullQuery = `${angleQueries[i].query} ${exclusions}`;
     
     try {
       const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-        params: { q: fullQuery, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", num: 1 } // Get best result for this angle
+        params: { 
+          q: fullQuery, 
+          cx: CX_ID, 
+          key: GOOGLE_KEY, 
+          searchType: "image", 
+          imgType: "photo",    // Prefer photos over clipart/lineart
+          imgSize: "large",    // Prefer high res
+          num: 5               // Fetch 5 to check for duplicates
+        } 
       });
 
       const items = res.data.items || [];
       if (items.length > 0) {
-        const imgUrl = items[0].link;
-        const imgPath = path.join(__dirname, `temp_${angleQueries[i].type}_${i}.jpg`);
-        
-        // Download Image
-        const response = await axios({ url: imgUrl, method: "GET", responseType: "stream", timeout: 10000 });
-        await new Promise((resolve, reject) => {
-          const w = fs.createWriteStream(imgPath);
-          response.data.pipe(w);
-          w.on("finish", resolve);
-          w.on("error", reject);
-        });
-        paths.push(imgPath);
-        console.log(`   ✅ Got ${angleQueries[i].type} image.`);
+        let imgUrl = null;
+
+        // Find first image not used
+        for (const item of items) {
+            if (!usedUrls.has(item.link)) {
+                imgUrl = item.link;
+                usedUrls.add(imgUrl);
+                break;
+            }
+        }
+
+        if (imgUrl) {
+            const imgPath = path.join(__dirname, `temp_${angleQueries[i].type}_${i}.jpg`);
+            
+            // Download Image
+            const response = await axios({ url: imgUrl, method: "GET", responseType: "stream", timeout: 10000 });
+            await new Promise((resolve, reject) => {
+            const w = fs.createWriteStream(imgPath);
+            response.data.pipe(w);
+            w.on("finish", resolve);
+            w.on("error", reject);
+            });
+            paths.push(imgPath);
+            console.log(`   ✅ Got ${angleQueries[i].type} image.`);
+        } else {
+             console.log(`   ⚠️ All duplicate images for ${angleQueries[i].type}.`);
+        }
       }
     } catch (e) {
       console.error(`   ⚠️ Failed to fetch ${angleQueries[i].type} image: ${e.message}`);
@@ -231,11 +258,11 @@ async function run() {
   const tweets = await generateTweets(topic);
   const images = await getImages(topic);
   const sessionId = generateSessionId();
+  let prevId = null;
 
   try {
     console.log(`✅ Starting Tweet process (${tweets.length} tweets)...`);
 
-    let prevId = null;
     for (let i = 0; i < tweets.length; i++) {
       let text = tweets[i];
       if (i === tweets.length - 1) text += `\n\nRef: ${sessionId}`;
@@ -284,17 +311,23 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    try {
-      console.log("☢️ Attempting Doomsday Tweet...");
-      const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
-      await client.v2.tweet(doom);
-    } catch (e) { console.error("Critical Failure:", e.message); }
+    // CRITICAL FIX: Only post Doomsday tweet if the thread hasn't started yet.
+    // This prevents the "third post is a random car" issue.
+    if (!prevId) {
+        try {
+            console.log("☢️ Attempting Doomsday Tweet (Thread failed to start)...");
+            const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
+            await client.v2.tweet(doom);
+        } catch (e) { console.error("Critical Failure:", e.message); }
+    } else {
+        console.log("⚠️ Thread failed midway. Skipping Doomsday to prevent mismatched topics.");
+    }
   }
 
+  // Cleanup
   images.forEach(p => { 
     try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch(e) {} 
   });
 }
 
 run();
-
