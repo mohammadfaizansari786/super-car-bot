@@ -106,7 +106,6 @@ async function getWikiCar(history) {
       const members = res.data.query.categorymembers || [];
       const valid = members.filter(m => {
         const title = cleanTitle(m.title);
-        // Stricter filtering to avoid "List of..." or irrelevant pages
         return !m.title.startsWith("Category:") && 
                !m.title.includes("List of") && 
                !m.title.includes("User:") && 
@@ -129,7 +128,6 @@ async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    // Strict prompt to ensure on-topic content
     const prompt = `Write a viral Twitter thread (2 or 3 tweets total) STRICTLY about the vehicle '${carName}'.
     
     Structure:
@@ -168,77 +166,89 @@ async function generateTweets(carName) {
   ];
 }
 
-// --- 3. GET IMAGES (MULTI-ANGLE + CONSISTENT STYLE) ---
+// --- 3. GET IMAGES (MULTI-ANGLE + STRICT FILTER) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   console.log("📸 Fetching specific angle images for:", carName);
   
   const paths = [];
-  const usedUrls = new Set(); // Track used URLs to avoid duplicates
+  const usedUrls = new Set(); 
   
-  // Define 4 specific angles to search for
+  // Simplified queries with heavy exclusion
   const angleQueries = [
-    { type: "front", query: `"${carName}" front view outdoor car press photo` },
-    { type: "rear",  query: `"${carName}" rear view outdoor car press photo` },
-    { type: "interior", query: `"${carName}" interior cockpit dashboard detail` },
-    { type: "detail", query: `"${carName}" engine exhaust wheel detail macro` }
+    { type: "front", query: `"${carName}" front view real car photo` },
+    { type: "rear",  query: `"${carName}" rear view real car photo` },
+    { type: "interior", query: `"${carName}" interior cockpit` },
+    { type: "detail", query: `"${carName}" engine wheel detail` }
   ];
 
-  // Aggressive exclusions for toys, models, and bad quality images
-  const exclusions = "-game -videogame -assetto -forza -gta -render -concept -sale -auction -forsale -dealer -price -ebay -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -remote-control -watermark -stock -alamy -getty -vector -clipart -cartoon";
+  // Aggressive exclusions for bad sites and toys
+  const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -site:etsy.* -site:youtube.* -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -drawing -sketch -render -3d -videogame -game -vector -cartoon -stock -alamy";
 
   for (let i = 0; i < angleQueries.length; i++) {
-    const fullQuery = `${angleQueries[i].query} ${exclusions}`;
+    // Construct Query
+    let fullQuery = `${angleQueries[i].query} ${exclusions}`;
     
-    try {
-      const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-        params: { 
-          q: fullQuery, 
-          cx: CX_ID, 
-          key: GOOGLE_KEY, 
-          searchType: "image", 
-          imgType: "photo",     // Filter: Photos only (no lineart/clipart)
-          imgSize: "large",     // Filter: Large images only
-          num: 10               // Fetch 10 results to find a valid non-duplicate
-        } 
-      });
+    // Attempt Search
+    let items = await performSearch(fullQuery);
+    
+    // Fallback: If specific angle fails, try generic
+    if (items.length === 0) {
+        console.log(`   ⚠️ No results for ${angleQueries[i].type}. Trying generic fallback...`);
+        fullQuery = `"${carName}" real car photo ${exclusions}`;
+        items = await performSearch(fullQuery);
+    }
 
-      const items = res.data.items || [];
-      if (items.length > 0) {
+    if (items.length > 0) {
         let imgUrl = null;
-
-        // Iterate through results to find the first unused image
+        // Find first unused valid image
         for (const item of items) {
             if (!usedUrls.has(item.link)) {
                 imgUrl = item.link;
-                usedUrls.add(imgUrl); // Mark as used
+                usedUrls.add(imgUrl);
                 break;
             }
         }
 
         if (imgUrl) {
             const imgPath = path.join(__dirname, `temp_${angleQueries[i].type}_${i}.jpg`);
-            
-            // Download Image
-            const response = await axios({ url: imgUrl, method: "GET", responseType: "stream", timeout: 10000 });
-            await new Promise((resolve, reject) => {
-              const w = fs.createWriteStream(imgPath);
-              response.data.pipe(w);
-              w.on("finish", resolve);
-              w.on("error", reject);
-            });
-            paths.push(imgPath);
-            console.log(`   ✅ Got ${angleQueries[i].type} image.`);
-        } else {
-            console.log(`   ⚠️ All found images for ${angleQueries[i].type} were duplicates.`);
+            try {
+                const response = await axios({ url: imgUrl, method: "GET", responseType: "stream", timeout: 10000 });
+                await new Promise((resolve, reject) => {
+                  const w = fs.createWriteStream(imgPath);
+                  response.data.pipe(w);
+                  w.on("finish", resolve);
+                  w.on("error", reject);
+                });
+                paths.push(imgPath);
+                console.log(`   ✅ Got ${angleQueries[i].type} image.`);
+            } catch (e) {
+                console.error(`   ❌ Download failed for ${imgUrl}`);
+            }
         }
-      }
-    } catch (e) {
-      console.error(`   ⚠️ Failed to fetch ${angleQueries[i].type} image: ${e.message}`);
     }
   }
-
   return paths;
+}
+
+async function performSearch(query) {
+    try {
+        const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
+            params: { 
+              q: query, 
+              cx: CX_ID, 
+              key: GOOGLE_KEY, 
+              searchType: "image", 
+              imgType: "photo",     
+              imgSize: "large",     
+              num: 8
+            } 
+        });
+        return res.data.items || [];
+    } catch (e) {
+        console.error(`   ⚠️ Search API Error: ${e.message}`);
+        return [];
+    }
 }
 
 // --- MAIN RUNNER ---
@@ -269,17 +279,19 @@ async function run() {
       if (i === tweets.length - 1) text += `\n\nRef: ${sessionId}`;
       text = safeTruncate(text);
 
-      // Upload ALL fetched images (up to 4) on the FIRST tweet
       let mediaIds = [];
+      
+      // --- IMAGE UPLOAD LOGIC ---
+      // ONLY upload images on the FIRST tweet (i === 0)
       if (i === 0 && images.length > 0) {
+        console.log(`📤 Uploading ${images.length} images for the first tweet...`);
         for (const img of images) {
           try {
-            console.log(`📤 Uploading image: ${img}`);
             const mediaId = await client.v1.uploadMedia(img);
             mediaIds.push(mediaId);
           } catch (e) { console.error(`⚠️ Image Upload Failed: ${e.message}`); }
         }
-        // Ensure we don't exceed Twitter's limit of 4
+        // Twitter allows max 4 images per tweet
         mediaIds = mediaIds.slice(0, 4);
       }
 
@@ -313,8 +325,7 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    // FIX: Only Doomsday if the thread never started (prevId is null).
-    // This prevents adding a random car tweet to the end of a broken thread.
+    // Only Post Doomsday Tweet if NO tweets were posted yet (prevId is null)
     if (!prevId) {
         try {
             console.log("☢️ Attempting Doomsday Tweet (Thread start failed)...");
@@ -326,10 +337,11 @@ async function run() {
     }
   }
 
-  // Cleanup
+  // Cleanup Images
   images.forEach(p => { 
     try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch(e) {} 
   });
 }
 
 run();
+
