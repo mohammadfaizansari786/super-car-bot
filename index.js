@@ -77,8 +77,6 @@ function generateSessionId() {
   return crypto.randomBytes(4).toString("hex");
 }
 
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 function safeTruncate(text) {
   if (text.length <= MAX_LENGTH) return text;
   return text.substring(0, MAX_LENGTH - 3) + "...";
@@ -123,57 +121,46 @@ async function getWikiCar(history) {
   return null;
 }
 
-// --- 2. GENERATE CONTENT (EXACTLY 2 TWEETS) ---
-async function generateTweets(carName) {
+// --- 2. GENERATE CONTENT (SINGLE POST) ---
+async function generateSingleTweet(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    // UPDATED PROMPT: Strictly 2 Tweets
-    const prompt = `Write a viral Twitter thread (EXACTLY 2 tweets total) STRICTLY about the vehicle '${carName}'.
+    // UPDATED PROMPT: Strict Single Tweet
+    const prompt = `Write exactly ONE viral tweet (max 270 characters) about the car '${carName}'.
     
-    Structure:
-    Tweet 1: Hook/Intro + Why is this car legendary?
-    Tweet 2: Technical Specs (Bullet points) + Legacy + 5-8 VIRAL HASHTAGS.
-
+    Requirements:
+    1. Start with the car name and a Hook.
+    2. Include ONE key technical spec (Engine or HP or Top Speed).
+    3. Include 3-4 hashtags at the end.
+    
     Rules:
-    - Do NOT write about other cars.
-    - Separate tweets strictly with '|||'.
-    - Use Emoji.
-    - Max 260 characters per tweet.
-    - No markdown bolding.`;
+    - NO threading.
+    - NO intro/outro text.
+    - STRICTLY under 280 characters.
+    - Use Emoji.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt
     });
 
-    const text = response.text;
+    let text = response.text.trim();
+    // Remove any accidental quotes
+    text = text.replace(/^"|"$/g, '');
     
-    // Split and filter empty strings
-    let parts = text.split('|||').map(p => p.trim()).filter(p => p.length > 0);
-    
-    // Fallback: If AI missed separator, split by paragraphs
-    if (parts.length < 2) {
-       console.log("⚠️ AI missed separator, splitting by paragraphs...");
-       parts = text.split('\n\n').map(p => p.trim()).filter(p => p.length > 0);
-    }
-
-    // Force strict limit of 2 tweets
-    return parts.slice(0, 2);
+    return text;
 
   } catch (e) {
     console.error("Gemini Failed:", e.message);
   }
   
-  // Fallback Template (2 Tweets)
+  // Fallback Template (Single Tweet)
   console.log("⚠️ Using Fallback Template.");
-  return [
-    `Legendary Machine: ${carName} 🏎️\n\nA masterclass in automotive engineering. This machine dominates the road.\n\n(Thread 🧵) #Cars`,
-    `The ${carName} is defined by its incredible performance and soul-stirring sound. 🏁\n\n• Engine: Masterpiece\n• Design: Timeless\n\n#${carName.replace(/\s/g, '')} #Supercars #Automotive #DreamCar #Legends`
-  ];
+  return `The ${carName} is an automotive masterpiece. 🏎️\n\nDefined by raw power and timeless design, it remains a legend of the road. 🏁\n\n#${carName.replace(/\s/g, '')} #Supercars #CarLegends`;
 }
 
-// --- 3. GET IMAGES (STRICT FILTER) ---
+// --- 3. GET IMAGES (SAME CAR/MODEL STRICT) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   console.log("📸 Fetching specific angle images for:", carName);
@@ -181,6 +168,7 @@ async function getImages(carName) {
   const paths = [];
   const usedUrls = new Set(); 
   
+  // Strict quoted queries to ensure exact model match
   const angleQueries = [
     { type: "front", query: `"${carName}" front view real car photo hd` },
     { type: "rear",  query: `"${carName}" rear view real car photo hd` },
@@ -188,6 +176,7 @@ async function getImages(carName) {
     { type: "detail", query: `"${carName}" engine wheel detail photo` }
   ];
 
+  // Exclude toys, models, and bad sites
   const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -site:etsy.* -site:youtube.* -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -drawing -sketch -render -3d -videogame -game -vector -cartoon -stock -alamy";
 
   for (let i = 0; i < angleQueries.length; i++) {
@@ -196,6 +185,7 @@ async function getImages(carName) {
     
     if (items.length === 0) {
         console.log(`   ⚠️ No results for ${angleQueries[i].type}. Trying generic fallback...`);
+        // Fallback still uses quoted name for consistency
         fullQuery = `"${carName}" real car photo ${exclusions}`;
         items = await performSearch(fullQuery);
     }
@@ -261,75 +251,51 @@ async function run() {
   
   console.log(`🏎️ Topic: ${topic}`);
 
-  const tweets = await generateTweets(topic);
+  // Generate SINGLE text and fetch images
+  let tweetText = await generateSingleTweet(topic);
   const images = await getImages(topic);
   const sessionId = generateSessionId();
-  let prevId = null;
 
   try {
-    console.log(`✅ Starting Tweet process (${tweets.length} tweets)...`);
+    console.log(`✅ Starting Single Tweet process...`);
 
-    for (let i = 0; i < tweets.length; i++) {
-      let text = tweets[i];
-      
-      // UNIQUE FOOTERS
-      if (i === 0) text += `\n\n🧵 ${sessionId}`; 
-      if (i === tweets.length - 1 && i !== 0) text += `\n\nRef: ${sessionId}`;
-      
-      text = safeTruncate(text);
+    // Ensure text is safe
+    tweetText = safeTruncate(tweetText);
 
-      let mediaIds = [];
-      // Upload ALL images on the FIRST tweet only
-      if (i === 0 && images.length > 0) {
-        console.log(`📤 Uploading ${images.length} images...`);
-        for (const img of images) {
-          try {
-            const mediaId = await client.v1.uploadMedia(img);
-            mediaIds.push(mediaId);
-          } catch (e) { console.error(`⚠️ Image Upload Failed: ${e.message}`); }
-        }
-        mediaIds = mediaIds.slice(0, 4);
+    let mediaIds = [];
+    if (images.length > 0) {
+      console.log(`📤 Uploading ${images.length} images...`);
+      for (const img of images) {
+        try {
+          const mediaId = await client.v1.uploadMedia(img);
+          mediaIds.push(mediaId);
+        } catch (e) { console.error(`⚠️ Image Upload Failed: ${e.message}`); }
       }
-
-      const params = { text: text };
-      if (mediaIds.length > 0) params.media = { media_ids: mediaIds };
-      
-      if (prevId) {
-        params.reply = { in_reply_to_tweet_id: prevId.toString() };
-        console.log(`🔗 Linking to thread parent: ${prevId}`);
-      }
-
-      console.log(`🐦 Posting Tweet ${i+1}/${tweets.length}...`);
-      const resp = await client.v2.tweet(params);
-      
-      if (resp.data && resp.data.id) {
-        prevId = resp.data.id;
-        console.log(`   Tweet Posted. ID: ${prevId}`);
-      } else {
-        throw new Error("API returned no Tweet ID");
-      }
-
-      if (i < tweets.length - 1) {
-        console.log("⏳ Waiting 10s for thread propagation...");
-        await wait(10000); 
-      }
+      mediaIds = mediaIds.slice(0, 4);
     }
 
-    saveHistory(topic);
-    console.log("✅ Thread Complete.");
+    const params = { text: tweetText };
+    if (mediaIds.length > 0) params.media = { media_ids: mediaIds };
+
+    console.log(`🐦 Posting Tweet...`);
+    const resp = await client.v2.tweet(params);
+    
+    if (resp.data && resp.data.id) {
+      console.log(`   Tweet Posted. ID: ${resp.data.id}`);
+      saveHistory(topic);
+    } else {
+      throw new Error("API returned no Tweet ID");
+    }
 
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    if (!prevId) {
-        try {
-            console.log("☢️ Attempting Doomsday Tweet...");
-            const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
-            await client.v2.tweet(doom);
-        } catch (e) { console.error("Critical Failure:", e.message); }
-    } else {
-        console.log("⚠️ Thread broken midway. Aborting Doomsday.");
-    }
+    // Doomsday Tweet (Single Post)
+    try {
+        console.log("☢️ Attempting Doomsday Tweet...");
+        const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
+        await client.v2.tweet(doom);
+    } catch (e) { console.error("Critical Failure:", e.message); }
   }
 
   // Cleanup Images
