@@ -123,19 +123,17 @@ async function getWikiCar(history) {
   return null;
 }
 
-// --- 2. GENERATE CONTENT (2-3 TWEETS) ---
+// --- 2. GENERATE CONTENT (EXACTLY 2 TWEETS) ---
 async function generateTweets(carName) {
   try {
     console.log(`🤖 Generating content for: ${carName}...`);
     
-    const prompt = `Write a viral Twitter thread (2 or 3 tweets total) STRICTLY about the vehicle '${carName}'.
+    // UPDATED PROMPT: Strictly 2 Tweets
+    const prompt = `Write a viral Twitter thread (EXACTLY 2 tweets total) STRICTLY about the vehicle '${carName}'.
     
     Structure:
-    Tweet 1: Hook/Intro. Why is this specific car legendary?
-    Tweet 2: Technical Specs (Bullet points) or Cool Facts about '${carName}'.
-    Tweet 3 (Optional): Legacy of '${carName}'.
-    
-    Ends with 5-8 VIRAL HASHTAGS in the final tweet.
+    Tweet 1: Hook/Intro + Why is this car legendary?
+    Tweet 2: Technical Specs (Bullet points) + Legacy + 5-8 VIRAL HASHTAGS.
 
     Rules:
     - Do NOT write about other cars.
@@ -150,23 +148,32 @@ async function generateTweets(carName) {
     });
 
     const text = response.text;
-    const parts = text.split('|||').map(p => p.trim());
     
-    if (parts.length >= 2 && parts.length <= 3) return parts;
+    // Split and filter empty strings
+    let parts = text.split('|||').map(p => p.trim()).filter(p => p.length > 0);
+    
+    // Fallback: If AI missed separator, split by paragraphs
+    if (parts.length < 2) {
+       console.log("⚠️ AI missed separator, splitting by paragraphs...");
+       parts = text.split('\n\n').map(p => p.trim()).filter(p => p.length > 0);
+    }
+
+    // Force strict limit of 2 tweets
+    return parts.slice(0, 2);
+
   } catch (e) {
     console.error("Gemini Failed:", e.message);
   }
   
-  // Fallback
+  // Fallback Template (2 Tweets)
   console.log("⚠️ Using Fallback Template.");
   return [
     `Legendary Machine: ${carName} 🏎️\n\nA masterclass in automotive engineering. This machine dominates the road.\n\n(Thread 🧵) #Cars`,
-    `The ${carName} is defined by its incredible performance and soul-stirring sound. 🏁\n\n• Engine: Masterpiece\n• Speed: Fast\n• Design: Timeless`,
-    `Is the ${carName} in your dream garage? 👇\n\n#${carName.replace(/\s/g, '')} #Supercars #Automotive #DreamCar #Legends`
+    `The ${carName} is defined by its incredible performance and soul-stirring sound. 🏁\n\n• Engine: Masterpiece\n• Design: Timeless\n\n#${carName.replace(/\s/g, '')} #Supercars #Automotive #DreamCar #Legends`
   ];
 }
 
-// --- 3. GET IMAGES (MULTI-ANGLE + STRICT FILTER) ---
+// --- 3. GET IMAGES (STRICT FILTER) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   console.log("📸 Fetching specific angle images for:", carName);
@@ -174,25 +181,19 @@ async function getImages(carName) {
   const paths = [];
   const usedUrls = new Set(); 
   
-  // Simplified queries with heavy exclusion
   const angleQueries = [
-    { type: "front", query: `"${carName}" front view real car photo` },
-    { type: "rear",  query: `"${carName}" rear view real car photo` },
-    { type: "interior", query: `"${carName}" interior cockpit` },
-    { type: "detail", query: `"${carName}" engine wheel detail` }
+    { type: "front", query: `"${carName}" front view real car photo hd` },
+    { type: "rear",  query: `"${carName}" rear view real car photo hd` },
+    { type: "interior", query: `"${carName}" interior cockpit photo hd` },
+    { type: "detail", query: `"${carName}" engine wheel detail photo` }
   ];
 
-  // Aggressive exclusions for bad sites and toys
   const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -site:etsy.* -site:youtube.* -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -drawing -sketch -render -3d -videogame -game -vector -cartoon -stock -alamy";
 
   for (let i = 0; i < angleQueries.length; i++) {
-    // Construct Query
     let fullQuery = `${angleQueries[i].query} ${exclusions}`;
-    
-    // Attempt Search
     let items = await performSearch(fullQuery);
     
-    // Fallback: If specific angle fails, try generic
     if (items.length === 0) {
         console.log(`   ⚠️ No results for ${angleQueries[i].type}. Trying generic fallback...`);
         fullQuery = `"${carName}" real car photo ${exclusions}`;
@@ -201,7 +202,6 @@ async function getImages(carName) {
 
     if (items.length > 0) {
         let imgUrl = null;
-        // Find first unused valid image
         for (const item of items) {
             if (!usedUrls.has(item.link)) {
                 imgUrl = item.link;
@@ -235,13 +235,8 @@ async function performSearch(query) {
     try {
         const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
             params: { 
-              q: query, 
-              cx: CX_ID, 
-              key: GOOGLE_KEY, 
-              searchType: "image", 
-              imgType: "photo",     
-              imgSize: "large",     
-              num: 8
+              q: query, cx: CX_ID, key: GOOGLE_KEY, 
+              searchType: "image", imgType: "photo", imgSize: "large", num: 8
             } 
         });
         return res.data.items || [];
@@ -276,22 +271,23 @@ async function run() {
 
     for (let i = 0; i < tweets.length; i++) {
       let text = tweets[i];
-      if (i === tweets.length - 1) text += `\n\nRef: ${sessionId}`;
+      
+      // UNIQUE FOOTERS
+      if (i === 0) text += `\n\n🧵 ${sessionId}`; 
+      if (i === tweets.length - 1 && i !== 0) text += `\n\nRef: ${sessionId}`;
+      
       text = safeTruncate(text);
 
       let mediaIds = [];
-      
-      // --- IMAGE UPLOAD LOGIC ---
-      // ONLY upload images on the FIRST tweet (i === 0)
+      // Upload ALL images on the FIRST tweet only
       if (i === 0 && images.length > 0) {
-        console.log(`📤 Uploading ${images.length} images for the first tweet...`);
+        console.log(`📤 Uploading ${images.length} images...`);
         for (const img of images) {
           try {
             const mediaId = await client.v1.uploadMedia(img);
             mediaIds.push(mediaId);
           } catch (e) { console.error(`⚠️ Image Upload Failed: ${e.message}`); }
         }
-        // Twitter allows max 4 images per tweet
         mediaIds = mediaIds.slice(0, 4);
       }
 
@@ -325,15 +321,14 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    // Only Post Doomsday Tweet if NO tweets were posted yet (prevId is null)
     if (!prevId) {
         try {
-            console.log("☢️ Attempting Doomsday Tweet (Thread start failed)...");
+            console.log("☢️ Attempting Doomsday Tweet...");
             const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
             await client.v2.tweet(doom);
         } catch (e) { console.error("Critical Failure:", e.message); }
     } else {
-        console.log("⚠️ Thread broken midway. Aborting Doomsday to preserve context.");
+        console.log("⚠️ Thread broken midway. Aborting Doomsday.");
     }
   }
 
