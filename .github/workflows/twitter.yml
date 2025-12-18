@@ -2,9 +2,8 @@ name: Auto Car Bot
 
 on:
   schedule:
-    # UPDATED: Run 6 times a day: Every 4 hours (0, 4, 8, 12, 16, 20 UTC)
-    # 6 runs x 2 tweets = 12 tweets/day (Safe under typical limits)
-    - cron: '0 */4 * * *'
+    # UPDATED: Run Every 2 Hours (12 times a day)
+    - cron: '0 */2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -63,4 +62,4 @@ jobs:
             git pull origin ${{ github.ref_name }} --rebase
             git push origin HEAD:${{ github.ref_name }}
           fi
-
+          
