@@ -2,9 +2,9 @@ name: Auto Car Bot
 
 on:
   schedule:
-    # Run 4 times a day: 6 AM, 12 PM, 6 PM, 12 AM UTC
-    # 4 runs x 3 tweets = 12 tweets (Safe under the 17 limit)
-    - cron: '0 0,6,12,18 * * *'
+    # UPDATED: Run 6 times a day: Every 4 hours (0, 4, 8, 12, 16, 20 UTC)
+    # 6 runs x 2 tweets = 12 tweets/day (Safe under typical limits)
+    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 permissions:
