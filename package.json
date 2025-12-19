@@ -1,8 +1,11 @@
 {
   "name": "super-car-bot",
-  "version": "2.2.0",
+  "version": "2.3.0",
+  "description": "Threaded Super Car Bot with Gemini 1.5 and Strict Image Matching",
   "main": "index.js",
-  "scripts": { "start": "node index.js" },
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "@google/genai": "^1.0.0",
     "twitter-api-v2": "^1.16.1",
