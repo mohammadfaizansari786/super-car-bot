@@ -29,3 +29,4 @@ Koenigsegg CC
 Ferrari 512
 Konrad KM-011
 Ferrari 315 S
+BMW 6 Series (E63)
