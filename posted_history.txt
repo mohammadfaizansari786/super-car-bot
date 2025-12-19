@@ -26,3 +26,4 @@ Ghia Selene
 McLaren 720S
 Aston Martin V8 Cygnet
 Koenigsegg CC
+Ferrari 512
