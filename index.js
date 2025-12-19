@@ -3,37 +3,18 @@ const { TwitterApi } = require("twitter-api-v2");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
 
 // --- CONFIGURATION ---
 const MAX_LENGTH = 280;
 const HISTORY_FILE = "posted_history.txt";
+const CAR_COLORS = ["Red", "Blue", "Black", "White", "Silver", "Grey", "Yellow", "Orange", "Green"];
 
 const WIKI_CATEGORIES = [
   "Category:Hypercars", "Category:Grand_tourers", "Category:Homologation_specials", 
-  "Category:Concept_cars", "Category:V12_engine_automobiles", "Category:V10_engine_automobiles", 
-  "Category:W16_engine_automobiles", "Category:Bugatti_vehicles", "Category:Koenigsegg_vehicles", 
-  "Category:Pagani_vehicles", "Category:McLaren_vehicles", "Category:Lamborghini_vehicles", 
-  "Category:Ferrari_vehicles", "Category:Aston_Martin_vehicles", "Category:Maserati_vehicles", 
-  "Category:Lotus_vehicles", "Category:Rimac_vehicles", "Category:Hennessey_vehicles",
-  "Category:Zenvo_vehicles", "Category:Spyker_vehicles", "Category:Gumpert_vehicles",
-  "Category:Noble_vehicles", "Category:SSC_North_America_vehicles"
+  "Category:V12_engine_automobiles", "Category:V10_engine_automobiles", 
+  "Category:Bugatti_vehicles", "Category:Koenigsegg_vehicles", "Category:Pagani_vehicles", 
+  "Category:McLaren_vehicles", "Category:Lamborghini_vehicles", "Category:Ferrari_vehicles"
 ];
-
-const BACKUP_TOPICS = [
-  "Lamborghini Miura", "Ferrari 250 GTO", "Mercedes-Benz 300 SL", "Ford GT40", 
-  "Ferrari F40", "Porsche 959", "McLaren F1", "Bugatti EB110", "Ferrari Enzo", 
-  "Porsche Carrera GT", "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari", 
-  "Bugatti Chiron", "Koenigsegg Jesko", "Rimac Nevera"
-];
-
-const DOOMSDAY_TWEETS = [
-  "Spotlight: Bugatti Chiron 🇫🇷\n\n1,500 HP quad-turbo W16 engine. A masterpiece of engineering. #Bugatti #Hypercar",
-  "Spotlight: Koenigsegg Jesko 🇸🇪\n\nEngineering without compromise. 300+ mph potential. #Koenigsegg #Jesko",
-  "Spotlight: Rimac Nevera 🇭🇷\n\n0-60 in 1.85 seconds. The electric revolution. #Rimac #EV #Future"
-];
-
-const CAR_COLORS = ["Red", "Blue", "Black", "White", "Silver", "Grey"];
 
 // --- AUTHENTICATION ---
 const client = new TwitterApi({
@@ -43,7 +24,7 @@ const client = new TwitterApi({
   accessSecret: process.env.ACCESS_SECRET,
 });
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
 const GOOGLE_KEY = process.env.GOOGLE_SEARCH_API_KEY;
 const CX_ID = process.env.SEARCH_ENGINE_ID;
 
@@ -58,36 +39,27 @@ function saveHistory(topic) {
   fs.appendFileSync(HISTORY_FILE, `${topic}\n`);
 }
 
-function generateSessionId() {
-  return crypto.randomBytes(4).toString("hex");
-}
-
-function safeTruncate(text) {
-  if (text.length <= MAX_LENGTH) return text;
-  return text.substring(0, MAX_LENGTH - 3) + "...";
-}
-
-// --- 1. WEB FETCH (IMPROVED) ---
+// --- 1. ROBUST WIKI FETCH ---
 async function getWikiCar(history) {
-  // Generic terms to ignore (prevents broad searches like "Luxury car")
-  const genericTerms = ["luxury car", "concept car", "sports car", "supercar", "hypercar", "race car", "automobile"];
+  const genericTerms = ["luxury car", "concept car", "sports car", "supercar", "hypercar", "race car", "automobile", "vehicle", "car"];
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const category = WIKI_CATEGORIES[Math.floor(Math.random() * WIKI_CATEGORIES.length)];
-      console.log(`🔎 Searching Wiki Category: ${category}`);
-      
       const res = await axios.get("https://en.wikipedia.org/w/api.php", {
         params: { action: "query", list: "categorymembers", cmtitle: category, cmlimit: 100, format: "json", origin: "*" },
-        headers: { 'User-Agent': 'SuperCarBot/1.0' }
+        headers: { 'User-Agent': 'SuperCarBot/2.0' }
       });
 
       const members = res.data.query.categorymembers || [];
       const valid = members.filter(m => {
         const title = m.title.toLowerCase();
         return !title.startsWith("category:") && 
+               !title.startsWith("file:") &&
                !title.includes("list of") && 
-               !genericTerms.includes(title) && // Filter out generic entries
+               !title.includes("talk:") &&
+               !genericTerms.includes(title) &&
+               title.split(" ").length >= 2 && // Avoid single words like "Ford"
                !history.has(m.title);
       });
 
@@ -97,26 +69,25 @@ async function getWikiCar(history) {
   return null;
 }
 
-// --- 2. GENERATE CONTENT ---
+// --- 2. ENHANCED TWEET GENERATION ---
 async function generateSingleTweet(carName) {
   try {
-    const prompt = `Write exactly ONE viral tweet (max 270 characters) about the car '${carName}'.
-    Requirements:
-    1. Start with the car name and a Hook.
-    2. Include ONE key technical spec (Engine or HP or Top Speed).
-    3. Include 3-4 hashtags at the end.
-    Rules: NO threading, NO intro/outro, STRICTLY under 280 characters. Use Emoji.`;
-
-    const response = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt);
-    let text = response.response.text().trim().replace(/^"|"$/g, '');
-    return text;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Write a high-energy, viral tweet about the '${carName}'. 
+    Structure:
+    - Exciting Hook with the car name.
+    - One mind-blowing performance spec (0-60, Top Speed, or HP).
+    - 3 relevant hashtags.
+    Keep it under 270 characters. No quotes. Use 2-3 emojis.`;
+    
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim().replace(/^"|"$/g, '');
   } catch (e) {
-    console.error("Gemini Failed:", e.message);
-    return `The ${carName} is an automotive masterpiece. 🏎️\n\nDefined by raw power and timeless design. 🏁\n\n#${carName.replace(/\s/g, '').replace(/[()]/g, '')} #Supercars`;
+    return `The ${carName} represents the pinnacle of automotive engineering. 🏎️🔥 #Supercars #Speed #${carName.replace(/\s/g, '')}`;
   }
 }
 
-// --- 3. GET IMAGES (FIXED SELECTION) ---
+// --- 3. KEYWORD-SCORED IMAGE FETCH ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   
@@ -125,41 +96,43 @@ async function getImages(carName) {
   const usedUrls = new Set(); 
   
   const angleQueries = [
-    { type: "front", query: `"${carName}" ${color} front view car 4k wallpaper` },
-    { type: "rear",  query: `"${carName}" ${color} rear view car 4k wallpaper` },
-    { type: "interior", query: `"${carName}" interior cockpit detail photo` }
+    { type: "hero", query: `"${carName}" ${color} car photo high resolution` },
+    { type: "detail", query: `"${carName}" wheel or interior dashboard detail` }
   ];
 
-  const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -toy -model -diecast -lego -r/c -drawing -sketch -render -3d -stock -alamy";
+  const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -toy -model -diecast -scale -lego -r/c -drawing -sketch -render -3d -comparison -vs";
 
   for (let i = 0; i < angleQueries.length; i++) {
     let items = await performSearch(`${angleQueries[i].query} ${exclusions}`);
     
-    // VALIDATION: Filter results to ensure they mention the car name in title/snippet
+    // Scoring Logic: Title and snippet must contain significant car name components
+    const nameKeywords = carName.toLowerCase().split(" ").filter(w => w.length > 2);
+    
     const validItems = items.filter(item => {
       const metadata = (item.title + " " + (item.snippet || "")).toLowerCase();
-      const nameWords = carName.toLowerCase().split(" ").filter(w => w.length > 2);
-      // Ensure all major keywords of the car name appear in the search result metadata
-      return nameWords.every(word => metadata.includes(word));
+      // Count how many keywords from the car name match the image metadata
+      const matches = nameKeywords.filter(word => metadata.includes(word)).length;
+      const score = matches / nameKeywords.length;
+      return score >= 0.75; // Require 75% keyword match to be considered valid
     });
 
-    const targetList = validItems.length > 0 ? validItems : items;
-
-    for (const item of targetList) {
-      if (!usedUrls.has(item.link)) {
-        try {
-          const imgPath = path.join(__dirname, `temp_${i}.jpg`);
-          const response = await axios({ url: item.link, method: "GET", responseType: "stream", timeout: 8000 });
-          await new Promise((resolve, reject) => {
-            const w = fs.createWriteStream(imgPath);
-            response.data.pipe(w);
-            w.on("finish", resolve);
-            w.on("error", reject);
-          });
-          paths.push(imgPath);
-          usedUrls.add(item.link);
-          break;
-        } catch (e) { console.error(`Download error for ${item.link}`); }
+    if (validItems.length > 0) {
+      for (const item of validItems) {
+        if (!usedUrls.has(item.link)) {
+          try {
+            const imgPath = path.join(__dirname, `temp_${i}_${Date.now()}.jpg`);
+            const response = await axios({ url: item.link, method: "GET", responseType: "stream", timeout: 8000 });
+            await new Promise((resolve, reject) => {
+              const w = fs.createWriteStream(imgPath);
+              response.data.pipe(w);
+              w.on("finish", resolve);
+              w.on("error", reject);
+            });
+            paths.push(imgPath);
+            usedUrls.add(item.link);
+            break; 
+          } catch (e) { console.error(`Download failed: ${item.link}`); }
+        }
       }
     }
   }
@@ -169,7 +142,7 @@ async function getImages(carName) {
 async function performSearch(query) {
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: { q: query, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", imgSize: "large", num: 10 } 
+      params: { q: query, cx: CX_ID, key: GOOGLE_KEY, searchType: "image", imgSize: "xlarge", num: 10 } 
     });
     return res.data.items || [];
   } catch (e) { return []; }
@@ -179,11 +152,16 @@ async function performSearch(query) {
 async function run() {
   const history = loadHistory();
   let topic = await getWikiCar(history);
-  if (!topic) topic = BACKUP_TOPICS[Math.floor(Math.random() * BACKUP_TOPICS.length)];
   
-  console.log(`🏎️ Final Topic: ${topic}`);
+  if (!topic) {
+    console.log("⚠️ No new Wiki car found. Using backup...");
+    const backups = ["Ferrari F40", "McLaren P1", "Lamborghini Aventador", "Bugatti Chiron"];
+    topic = backups[Math.floor(Math.random() * backups.length)];
+  }
+  
+  console.log(`🏎️ Processing: ${topic}`);
 
-  let tweetText = safeTruncate(await generateSingleTweet(topic));
+  const tweetText = await generateSingleTweet(topic);
   const images = await getImages(topic);
 
   try {
@@ -192,21 +170,22 @@ async function run() {
       try {
         const mediaId = await client.v1.uploadMedia(img);
         mediaIds.push(mediaId);
-      } catch (e) { console.error("Upload failed"); }
+      } catch (e) { console.error("Upload failed for one image."); }
     }
 
-    const params = { text: tweetText };
+    const params = { text: tweetText.substring(0, MAX_LENGTH) };
     if (mediaIds.length > 0) params.media = { media_ids: mediaIds.slice(0, 4) };
 
     const resp = await client.v2.tweet(params);
-    if (resp.data) saveHistory(topic);
-
+    if (resp.data) {
+      console.log(`🚀 Successfully Posted! Tweet ID: ${resp.data.id}`);
+      saveHistory(topic);
+    }
   } catch (error) {
-    console.error("Post failed, sending fallback...");
-    const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)];
-    await client.v2.tweet(doom);
+    console.error("Critical Post Error:", error.message);
   }
 
+  // Cleanup local files
   images.forEach(p => { try { fs.unlinkSync(p); } catch(e) {} });
 }
 
