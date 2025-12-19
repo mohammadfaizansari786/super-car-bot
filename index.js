@@ -9,45 +9,59 @@ const crypto = require("crypto");
 const MAX_LENGTH = 280;
 const HISTORY_FILE = "posted_history.txt";
 
-// --- EXPANDED WEB LIBRARY ---
+// --- EXPANDED WEB LIBRARY (MODERN FOCUSED + HYPERCARS) ---
 const WIKI_CATEGORIES = [
-  "Category:Supercars", "Category:Hypercars", "Category:Sports_cars", 
-  "Category:Grand_tourers", "Category:Muscle_cars", "Category:Rally_cars",
-  "Category:Homologation_specials", "Category:Concept_cars", 
-  "Category:Rear_mid-engine,_rear-wheel-drive_vehicles",
-  "Category:Luxury_vehicles", "Category:V12_engine_automobiles", 
-  "Category:V10_engine_automobiles", "Category:W16_engine_automobiles",
-  "Category:Ferrari_vehicles", "Category:Lamborghini_vehicles", 
-  "Category:Porsche_vehicles", "Category:McLaren_vehicles", 
-  "Category:Bugatti_vehicles", "Category:Aston_Martin_vehicles",
-  "Category:Maserati_vehicles", "Category:Pagani_vehicles",
-  "Category:Koenigsegg_vehicles", "Category:Lotus_vehicles",
-  "Category:Alfa_Romeo_vehicles", "Category:BMW_M_vehicles",
-  "Category:Mercedes-AMG_vehicles", "Category:Audi_Sport_vehicles"
+  "Category:Hypercars", "Category:Grand_tourers", "Category:Homologation_specials", 
+  "Category:Concept_cars", "Category:V12_engine_automobiles", "Category:V10_engine_automobiles", 
+  "Category:W16_engine_automobiles", "Category:Bugatti_vehicles", "Category:Koenigsegg_vehicles", 
+  "Category:Pagani_vehicles", "Category:McLaren_vehicles", "Category:Lamborghini_vehicles", 
+  "Category:Ferrari_vehicles", "Category:Aston_Martin_vehicles", "Category:Maserati_vehicles", 
+  "Category:Lotus_vehicles", "Category:Rimac_vehicles", "Category:Hennessey_vehicles",
+  "Category:Zenvo_vehicles", "Category:Spyker_vehicles", "Category:Gumpert_vehicles",
+  "Category:Noble_vehicles", "Category:SSC_North_America_vehicles"
 ];
 
+// --- TOPICS: SPECIFIC MODELS (Preserve Generation/Year info) ---
 const BACKUP_TOPICS = [
-  "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari",
-  "McLaren F1", "Ferrari F40", "Porsche 959", "Bugatti EB110", "Jaguar XJ220", 
-  "Mercedes-Benz CLK GTR", "Porsche 911 GT1", "Nissan R390 GT1", "Dodge Viper GTS",
-  "Bugatti Chiron", "Koenigsegg Jesko", "Pagani Huayra", "Aston Martin Valkyrie", 
-  "Mercedes-AMG One", "Rimac Nevera", "Lotus Evija", "Hennessey Venom F5", "SSC Tuatara", 
-  "Nissan Skyline GT-R R34", "Mazda 787B", "Toyota Supra MK4", "Honda NSX-R", 
-  "Lexus LFA", "Subaru Impreza 22B", "Mitsubishi Lancer Evolution VI", "Mazda RX-7 FD",
-  "Lamborghini Countach", "Lamborghini Miura", "Ferrari Enzo", "Ferrari F50", 
-  "Pagani Zonda Cinque", "Lamborghini Diablo GT", "Alfa Romeo 33 Stradale", 
-  "Lancia Stratos", "Maserati MC12", "Ferrari 250 GTO", "Lamborghini Murciélago SV",
-  "Porsche Carrera GT", "Mercedes-Benz 300SL Gullwing", "BMW M1", "Audi Quattro S1", 
-  "BMW E46 M3 GTR", "Porsche 917K", "Mercedes-Benz SLR McLaren", "Audi R8 V10 Plus",
-  "Ford GT40", "Shelby Cobra 427", "Dodge Viper ACR", "Chevrolet Corvette C8 Z06", 
-  "Saleen S7", "Ford GT (2005)", "Vector W8", "Shelby Mustang GT500", "Plymouth Superbird",
-  "McLaren Senna", "Ferrari FXX-K", "Aston Martin Vulcan", "Pagani Zonda R"
+  // --- THE LEGENDS (Pre-1980s) ---
+  "Lamborghini Miura", "Ferrari 250 GTO", "Mercedes-Benz 300 SL", 
+  "Ford GT40", "Shelby Cobra 427", "Jaguar E-Type", "Aston Martin DB5",
+
+  // --- 1980s ICONS ---
+  "Ferrari F40", "Porsche 959", "Vector W8", "Audi Sport quattro S1", "Ferrari Testarossa", 
+  "Lamborghini Countach", "BMW M1",
+  
+  // --- 1990s LEGENDS ---
+  "McLaren F1", "Bugatti EB110", "Jaguar XJ220", "Mercedes-Benz CLK GTR", 
+  "Porsche 911 GT1", "Nissan R390 GT1", "Dodge Viper GTS", "Toyota Supra (A80)", 
+  "Honda NSX (first generation)", "Mazda RX-7", "Nissan Skyline GT-R (R34)", "Subaru Impreza 22B STi", 
+  "Mitsubishi Lancer Evolution VI", "Ferrari F50", "Lamborghini Diablo", "Lotus Esprit V8",
+  
+  // --- 2000s SUPERSTARS ---
+  "Ferrari Enzo", "Porsche Carrera GT", "Ford GT (2005)", "Mercedes-Benz SLR McLaren", 
+  "Maserati MC12", "Pagani Zonda Cinque", "Bugatti Veyron", "Koenigsegg CCX", 
+  "Saleen S7", "Lamborghini Murciélago LP 670-4 SuperVeloce", "Spyker C8", "Gumpert Apollo", 
+  "Noble M600", "Aston Martin One-77", "Lexus LFA", "BMW M3 GTR",
+  
+  // --- MODERN HYPERCARS (2010s-Present) ---
+  "McLaren P1", "Porsche 918 Spyder", "Ferrari LaFerrari", "Bugatti Chiron", 
+  "Koenigsegg Jesko", "Pagani Huayra", "Aston Martin Valkyrie", "Mercedes-AMG One", 
+  "Rimac Nevera", "Lotus Evija", "Hennessey Venom F5", "SSC Tuatara", 
+  "McLaren Senna", "Ferrari FXX-K", "Aston Martin Vulcan", "Pagani Zonda R", 
+  "Lamborghini Aventador SVJ", "Ferrari SF90 Stradale", "McLaren Speedtail", 
+  "Gordon Murray Automotive T.50", "Zenvo TSR-S", "Koenigsegg Gemera", "Bugatti Bolide", 
+  "Pininfarina Battista", "Lamborghini Revuelto", "Ferrari Daytona SP3"
 ];
 
 const DOOMSDAY_TWEETS = [
-  "Spotlight: Ferrari F40 🏎️\n\nRaw, twin-turbocharged perfection. The last Ferrari Enzo signed off on.\n\nA true driver's car. 🏁\n\n#Ferrari #Legends",
-  "Spotlight: McLaren F1 🇬🇧\n\nGold-lined engine bay. Center seat. The fastest naturally aspirated car ever.\n\nGordon Murray's masterpiece. 🧵\n\n#McLaren #Icons",
-  "Spotlight: Mazda 787B 🇯🇵\n\nThe rotary engine's finest hour. The first Japanese car to win Le Mans.\n\nThat 4-rotor scream is unforgettable. 🔊\n\n#Mazda #Rotary"
+  "Spotlight: Bugatti Chiron 🇫🇷\n\n1,500 HP quad-turbo W16 engine. A masterpiece of engineering that redefined speed.\n\nThe ultimate grand tourer. 🚀\n\n#Bugatti #Hypercar",
+  "Spotlight: Koenigsegg Jesko 🇸🇪\n\nA 1,600 HP megacar capable of breaking the 300 mph barrier. Engineering without compromise.\n\nThe sound of the Light Speed Transmission is unreal. 🔊\n\n#Koenigsegg #Jesko",
+  "Spotlight: Rimac Nevera 🇭🇷\n\nThe electric revolution. 0-60 in 1.85 seconds. A lightning storm on wheels.\n\nChanging the game forever. ⚡\n\n#Rimac #EV #Future"
+];
+
+// --- IMPROVED COLOR LIST (Safe for Classics & Modern) ---
+const CAR_COLORS = [
+  "Red", "Blue", "Black", "White", "Silver", "Grey"
 ];
 
 // --- AUTHENTICATION ---
@@ -82,8 +96,10 @@ function safeTruncate(text) {
   return text.substring(0, MAX_LENGTH - 3) + "...";
 }
 
+// CRITICAL FIX: Do NOT strip brackets/years. Keep full specificity.
+// Example: "Ford GT (2005)" stays "Ford GT (2005)" for strict searching.
 function cleanTitle(title) {
-  return title.replace(/ \(.+\)$/, "").trim();
+  return title.trim(); 
 }
 
 // --- 1. WEB FETCH ---
@@ -103,18 +119,19 @@ async function getWikiCar(history) {
 
       const members = res.data.query.categorymembers || [];
       const valid = members.filter(m => {
-        const title = cleanTitle(m.title);
-        return !m.title.startsWith("Category:") && 
-               !m.title.includes("List of") && 
-               !m.title.includes("User:") && 
-               !m.title.includes("File:") &&
-               !m.title.includes("Template:") &&
+        const title = m.title; // Do not use cleanTitle yet
+        return !title.startsWith("Category:") && 
+               !title.includes("List of") && 
+               !title.includes("User:") && 
+               !title.includes("File:") &&
+               !title.includes("Template:") &&
                !history.has(title);
       });
 
       if (valid.length > 0) {
+        // Return the full, specific title (e.g., "Chevrolet Corvette (C8)")
         const chosen = valid[Math.floor(Math.random() * valid.length)].title;
-        return cleanTitle(chosen);
+        return chosen.trim();
       }
     } catch (e) { console.error("Wiki Fetch Failed:", e.message); }
   }
@@ -155,29 +172,33 @@ async function generateSingleTweet(carName) {
     console.error("Gemini Failed:", e.message);
   }
   
-  // Fallback Template (Single Tweet)
+  // Fallback Template
   console.log("⚠️ Using Fallback Template.");
-  return `The ${carName} is an automotive masterpiece. 🏎️\n\nDefined by raw power and timeless design, it remains a legend of the road. 🏁\n\n#${carName.replace(/\s/g, '')} #Supercars #CarLegends`;
+  return `The ${carName} is an automotive masterpiece. 🏎️\n\nDefined by raw power and timeless design, it remains a legend of the road. 🏁\n\n#${carName.replace(/\s/g, '').replace(/[()]/g, '')} #Supercars #CarLegends`;
 }
 
-// --- 3. GET IMAGES (SAME CAR/MODEL STRICT) ---
+// --- 3. GET IMAGES (SAME CAR + IMPROVED SELECTION) ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
-  console.log("📸 Fetching specific angle images for:", carName);
+  
+  // Pick a "Safe" color for this session to ensure consistency across all angles
+  const color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
+  console.log(`📸 Fetching images for: ${carName} in ${color}`);
   
   const paths = [];
   const usedUrls = new Set(); 
   
-  // Strict quoted queries to ensure exact model match
+  // Use QUOTES around carName to enforce EXACT model/generation match
+  // Example query: "Ford GT (2005)" Red front view car 4k wallpaper
   const angleQueries = [
-    { type: "front", query: `"${carName}" front view real car photo hd` },
-    { type: "rear",  query: `"${carName}" rear view real car photo hd` },
-    { type: "interior", query: `"${carName}" interior cockpit photo hd` },
-    { type: "detail", query: `"${carName}" engine wheel detail photo` }
+    { type: "front", query: `"${carName}" ${color} front view car 4k wallpaper` },
+    { type: "rear",  query: `"${carName}" ${color} rear view car 4k wallpaper` },
+    { type: "interior", query: `"${carName}" interior cockpit detail photo` }, 
+    { type: "detail", query: `"${carName}" ${color} engine wheel detail close up` }
   ];
 
-  // Exclude toys, models, and bad sites
-  const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -site:etsy.* -site:youtube.* -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -drawing -sketch -render -3d -videogame -game -vector -cartoon -stock -alamy";
+  // Exclude bad results
+  const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -site:etsy.* -site:youtube.* -toy -model -diecast -scale -miniature -lego -hotwheels -r/c -drawing -sketch -render -3d -videogame -game -vector -cartoon -stock -alamy -auction";
 
   for (let i = 0; i < angleQueries.length; i++) {
     let fullQuery = `${angleQueries[i].query} ${exclusions}`;
@@ -185,8 +206,8 @@ async function getImages(carName) {
     
     if (items.length === 0) {
         console.log(`   ⚠️ No results for ${angleQueries[i].type}. Trying generic fallback...`);
-        // Fallback still uses quoted name for consistency
-        fullQuery = `"${carName}" real car photo ${exclusions}`;
+        // Fallback: Less specific words, but keep quotes and color
+        fullQuery = `"${carName}" ${color} real car photo ${exclusions}`;
         items = await performSearch(fullQuery);
     }
 
@@ -290,7 +311,6 @@ async function run() {
   } catch (error) {
     console.error("❌ Main Error Detailed:", JSON.stringify(error, null, 2));
     
-    // Doomsday Tweet (Single Post)
     try {
         console.log("☢️ Attempting Doomsday Tweet...");
         const doom = DOOMSDAY_TWEETS[Math.floor(Math.random() * DOOMSDAY_TWEETS.length)] + `\n\nID: ${sessionId}`;
