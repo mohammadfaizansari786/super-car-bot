@@ -7,7 +7,7 @@ const path = require("path");
 // --- CONFIGURATION ---
 const MAX_LENGTH = 280;
 const HISTORY_FILE = "posted_history.txt";
-const CAR_COLORS = ["Red", "Blue", "Black", "White", "Silver", "Grey", "Yellow", "Orange", "Green"];
+const CAR_COLORS = ["Red", "Blue", "Black", "White", "Silver", "Grey", "Yellow", "Orange", "Green", "Gold"];
 
 const WIKI_CATEGORIES = [
   "Category:Hypercars", "Category:Grand_tourers", "Category:Homologation_specials", 
@@ -44,7 +44,7 @@ function safeTruncate(text) {
   return text.substring(0, MAX_LENGTH - 3) + "...";
 }
 
-// --- 1. ROBUST WIKI FETCH ---
+// --- 1. TARGETED WIKI FETCH ---
 async function getWikiCar(history) {
   const genericTerms = ["luxury car", "concept car", "sports car", "supercar", "hypercar", "race car", "automobile", "vehicle", "car", "railcar"];
 
@@ -53,7 +53,7 @@ async function getWikiCar(history) {
       const category = WIKI_CATEGORIES[Math.floor(Math.random() * WIKI_CATEGORIES.length)];
       const res = await axios.get("https://en.wikipedia.org/w/api.php", {
         params: { action: "query", list: "categorymembers", cmtitle: category, cmlimit: 100, format: "json", origin: "*" },
-        headers: { 'User-Agent': 'SuperCarBot/2.0' }
+        headers: { 'User-Agent': 'SuperCarBot/2.5' }
       });
 
       const members = res.data.query.categorymembers || [];
@@ -74,19 +74,23 @@ async function getWikiCar(history) {
   return null;
 }
 
-// --- 2. THREAD GENERATION ---
+// --- 2. DEEP DETAIL THREAD GENERATION ---
 async function generateCarThread(carName) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `Write a 4-tweet viral thread about the '${carName}'.
-    
+    const prompt = `Write a highly detailed 3-tweet thread about the '${carName}'. 
+    Use the full 280-character limit for each tweet to provide deep technical insights.
+
     Structure:
-    Tweet 1: High-energy hook with the car name.
-    Tweet 2: Technical specs (Engine, HP, Top Speed).
-    Tweet 3: A fascinating historical fact or design detail.
-    Tweet 4: Impact on car culture and 3-4 hashtags.
-    
-    Rules: Each tweet < 270 chars. No quotes. Use Emojis. Return ONLY a JSON array of strings: ["t1", "t2", "t3", "t4"]`;
+    Tweet 1: The Hook and Heart. Mention the car name, engine configuration (V8, V12, W16), displacement, aspiration (Twin-Turbo, N/A), and exact Horsepower/Torque figures.
+    Tweet 2: The Performance Dynamics. Detail the 0-60 mph (or 0-100 km/h) time, top speed, gearbox type (dual-clutch, manual), and aerodynamic features (active wings, downforce kg).
+    Tweet 3: The Legacy and Rarity. Discuss production numbers, chassis materials (Carbon Fiber, Monocoque), current market value/significance, and 4-5 hashtags.
+
+    Rules: 
+    - Each tweet MUST be close to 270-280 characters.
+    - No introductory text or quotes.
+    - Use technical automotive language.
+    - Return ONLY a JSON array of strings: ["tweet 1 content", "tweet 2 content", "tweet 3 content"]`;
     
     const result = await model.generateContent(prompt);
     const content = result.response.text().trim().replace(/```json|```/g, "");
@@ -94,15 +98,14 @@ async function generateCarThread(carName) {
   } catch (e) {
     console.error("Gemini Thread Generation Failed:", e.message);
     return [
-      `The ${carName} is an automotive legend. 🏎️🔥`,
-      `Engineered for pure performance and speed. 💨`,
-      `A masterpiece of design and history. 🏁`,
-      `The ultimate dream car. #Supercars #${carName.replace(/\s/g, '')}`
+      `The ${carName} is an engineering masterpiece. Powered by a high-performance engine, it delivers massive horsepower and torque, setting it apart as a true titan of the road. 🏎️🔥`,
+      `With a 0-60 time that defies physics and a top speed reaching into the stratosphere, its aerodynamics and precision-tuned gearbox ensure every ounce of power is utilized. 💨`,
+      `Produced in limited numbers and utilizing cutting-edge carbon fiber construction, it remains a coveted icon for collectors worldwide. #Supercars #Hypercars #Speed #${carName.replace(/\s/g, '')}`
     ];
   }
 }
 
-// --- 3. STRICT IMAGE FETCH ---
+// --- 3. VERIFIED IMAGE FETCH ---
 async function getImages(carName) {
   if (!GOOGLE_KEY) return [];
   const color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
@@ -110,10 +113,9 @@ async function getImages(carName) {
   const usedUrls = new Set(); 
   
   const angleQueries = [
-    { type: "front", query: `intitle:"${carName}" ${color} car front view 4k` },
+    { type: "hero", query: `intitle:"${carName}" ${color} car front 4k wallpaper` },
     { type: "rear",  query: `intitle:"${carName}" ${color} car rear view 4k` },
-    { type: "interior", query: `intitle:"${carName}" car interior cockpit photo` },
-    { type: "detail", query: `intitle:"${carName}" car engine or wheel detail` }
+    { type: "interior", query: `intitle:"${carName}" car cockpit steering wheel` }
   ];
 
   const exclusions = "-site:pinterest.* -site:ebay.* -site:amazon.* -toy -model -diecast -scale -lego -r/c -drawing -sketch -render -3d -comparison -vs";
@@ -128,7 +130,7 @@ async function getImages(carName) {
     const validItems = items.filter(item => {
       const metadata = (item.title + " " + (item.snippet || "")).toLowerCase();
       const matches = nameKeywords.filter(word => metadata.includes(word)).length;
-      return (matches / nameKeywords.length) >= 0.75; // 75% keyword match requirement
+      return (matches / nameKeywords.length) >= 0.75; 
     });
 
     if (validItems.length > 0) {
@@ -158,7 +160,7 @@ async function getImages(carName) {
 async function run() {
   const history = loadHistory();
   let topic = await getWikiCar(history);
-  if (!topic) topic = "Ferrari F40"; // Safe backup
+  if (!topic) topic = "McLaren P1"; 
   
   console.log(`🏎️ Final Topic: ${topic}`);
 
@@ -176,17 +178,18 @@ async function run() {
 
     const threadItems = threadTexts.map((text, index) => {
       const item = { text: safeTruncate(text) };
+      // Distribute images across the thread (one per tweet)
       if (mediaIds[index]) item.media = { media_ids: [mediaIds[index]] };
       return item;
     });
 
     const resp = await client.v2.tweetThread(threadItems);
     if (resp.length > 0) {
-      console.log(`🚀 Thread Posted! First Tweet ID: ${resp[0].data.id}`);
+      console.log(`🚀 Deep Detail Thread Posted! ID: ${resp[0].data.id}`);
       saveHistory(topic);
     }
   } catch (error) {
-    console.error("Post failed:", error.message);
+    console.error("Thread post failed:", error.message);
   }
 
   images.forEach(p => { try { fs.unlinkSync(p); } catch(e) {} });
