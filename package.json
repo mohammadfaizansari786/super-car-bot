@@ -1,14 +1,12 @@
 {
   "name": "super-car-bot",
   "version": "2.2.0",
-  "description": "Fail-Safe Twitter Bot with Gemini 2.5",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "@google/genai": "^1.0.0",
     "twitter-api-v2": "^1.16.1",
     "axios": "^1.6.8"
   }
 }
+
