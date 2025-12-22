@@ -49,3 +49,4 @@ Suzuki Cervo
 AMC Javelin
 BMW 525e
 Porsche 911 (992)
+Ferrari 333 SP
