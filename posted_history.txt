@@ -47,3 +47,4 @@ Porsche 944
 Suzuki Mighty Boy
 Suzuki Cervo
 AMC Javelin
+BMW 525e
