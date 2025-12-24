@@ -59,3 +59,4 @@ Audi F103
 Jaguar R
 Lexus TX
 Lamborghini Countach
+Mercedes-Benz GLA
