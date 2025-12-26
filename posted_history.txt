@@ -72,3 +72,4 @@ Lamborghini 400 GT
 Porsche 914
 Alfa Romeo 2000 GTV
 AUDI E5
+Mercedes-Benz SLR McLaren
