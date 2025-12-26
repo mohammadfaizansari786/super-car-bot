@@ -78,3 +78,4 @@ Koenigsegg CCX
 Ferrari 365 GTC/4
 Alfa Romeo 166
 Pagani Huayra
+Chevrolet Corvette
