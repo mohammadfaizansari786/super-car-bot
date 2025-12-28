@@ -85,3 +85,4 @@ Aston Martin DB11
 Aston Martin DBX
 Lamborghini Essenza SCV12
 Alfa Romeo 90
+Lotus Evija
