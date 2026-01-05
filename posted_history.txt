@@ -132,3 +132,4 @@ Chevrolet Corvette (C4)
 Lexus NX
 Nissan Pino
 Suzuki Fronte
+Jaguar XJR
