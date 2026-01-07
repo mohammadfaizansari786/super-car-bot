@@ -137,3 +137,4 @@ AMC Rebel
 Koenigsegg
 Aston Martin Vantage
 Lamborghini Diablo
+Audi Type M
