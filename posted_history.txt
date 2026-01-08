@@ -143,3 +143,4 @@ AC 428
 Subaru Rex
 Maserati Ghibli
 McLaren 750S
+Koenigsegg CC8S
