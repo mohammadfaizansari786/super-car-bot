@@ -146,3 +146,4 @@ McLaren 750S
 Koenigsegg CC8S
 Bentley State Limousine
 Ferrari 250 GT Coupé
+Lotus Eletre
