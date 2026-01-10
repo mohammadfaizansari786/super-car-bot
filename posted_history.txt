@@ -157,3 +157,4 @@ Ferrari 328 GTS
 Mercedes-Benz 450
 Maserati Quattroporte IV
 Bentley Turbo RT
+Alfa Romeo 156
