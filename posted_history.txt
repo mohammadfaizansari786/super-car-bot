@@ -155,3 +155,4 @@ BMW 600
 Ferrari 512BB
 Ferrari 328 GTS
 Mercedes-Benz 450
+Maserati Quattroporte IV
