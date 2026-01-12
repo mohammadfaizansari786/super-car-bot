@@ -160,3 +160,4 @@ Bentley Turbo RT
 Alfa Romeo 156
 Alfa Romeo Giulia TZ
 Audi 4000
+Ferrari GTC4Lusso
