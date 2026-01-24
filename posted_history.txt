@@ -212,3 +212,4 @@ Apollo Arrow
 Honda Z
 Lexus LX
 McLaren 650S
+Rolls-Royce 10 hp
