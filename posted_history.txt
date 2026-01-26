@@ -226,3 +226,4 @@ Aston Martin Le Mans
 EDAG Cinema 7D
 Chevrolet Corvette GTP
 Chevrolet Aerovette
+Audi S3
