@@ -230,3 +230,4 @@ Audi S3
 Lexus SC
 Koenigsegg Jesko
 Bentley S3
+Lamborghini Sesto Elemento
