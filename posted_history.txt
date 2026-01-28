@@ -231,3 +231,4 @@ Lexus SC
 Koenigsegg Jesko
 Bentley S3
 Lamborghini Sesto Elemento
+Chevrolet Corvette (C5)
