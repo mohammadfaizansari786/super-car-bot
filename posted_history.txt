@@ -246,3 +246,4 @@ Koenigsegg CCR
 Alfa Romeo GTV 2.0
 McLaren Senna
 Mercedes 35 hp
+Lexus LS
