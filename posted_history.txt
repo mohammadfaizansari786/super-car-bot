@@ -259,3 +259,4 @@ Bentley Azure
 Rambler Rebel
 Pontiac Banshee
 Porsche 911 GT3
+Ferrari 312 P
