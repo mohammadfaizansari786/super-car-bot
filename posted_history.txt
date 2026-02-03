@@ -264,3 +264,4 @@ ALFA 24 HP
 Aston Martin DB10
 BMW Dixi
 Audi S5
+Lexus IS (XE20)
