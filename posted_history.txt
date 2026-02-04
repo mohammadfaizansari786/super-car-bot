@@ -271,3 +271,4 @@ Lexus LFA
 Rolls-Royce Silver Wraith
 Mercedes-Benz A-Class
 BMW E9
+Jaguar 240
