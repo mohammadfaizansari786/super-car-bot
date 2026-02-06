@@ -273,3 +273,4 @@ Mercedes-Benz A-Class
 BMW E9
 Jaguar 240
 Alfa Romeo 75
+Mercedes-Benz 220
