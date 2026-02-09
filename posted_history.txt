@@ -287,3 +287,4 @@ Aston Martin Vulcan
 Mercedes-Benz EQE
 AMC AMX
 Lotus Elite
+Mercedes-Benz M-Class
