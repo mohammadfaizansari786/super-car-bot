@@ -308,3 +308,4 @@ Ferrari 275
 Maserati 6C 34
 Lexus HS
 BMW 2000
+Aston Martin DB4 GT Jet
