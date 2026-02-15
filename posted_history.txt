@@ -310,3 +310,4 @@ Lexus HS
 BMW 2000
 Aston Martin DB4 GT Jet
 Koenigsegg CC850
+Alfa Romeo Alfa 6
