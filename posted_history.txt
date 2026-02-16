@@ -316,3 +316,4 @@ Aston Martin AMB 001
 Bentley Turbo S
 Jaguar XE
 Jaguar I-Pace
+ZAP Alias
