@@ -320,3 +320,4 @@ ZAP Alias
 Lamborghini Aventador
 Lexus LBX
 Mercedes-Benz C11
+BMW 5 Series (E60)
