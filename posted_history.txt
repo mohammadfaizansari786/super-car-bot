@@ -319,3 +319,4 @@ Jaguar I-Pace
 ZAP Alias
 Lamborghini Aventador
 Lexus LBX
+Mercedes-Benz C11
