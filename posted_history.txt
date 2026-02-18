@@ -323,3 +323,4 @@ Mercedes-Benz C11
 BMW 5 Series (E60)
 Ferrari 212 Inter
 Mercedes-Benz EQB
+Lotus 340R
