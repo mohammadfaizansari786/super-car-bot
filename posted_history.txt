@@ -338,3 +338,4 @@ Ferrari 166 S
 BMW 3/20
 Suzuki Wagon R
 Audi S8
+Suzuki Spacia
