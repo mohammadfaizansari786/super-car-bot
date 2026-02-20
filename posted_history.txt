@@ -334,3 +334,4 @@ Maserati Kyalami
 Audi 5000
 Aston Martin DB4
 Porsche 911 (996)
+Ferrari 166 S
