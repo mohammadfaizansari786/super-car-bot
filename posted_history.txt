@@ -336,3 +336,4 @@ Aston Martin DB4
 Porsche 911 (996)
 Ferrari 166 S
 BMW 3/20
+Suzuki Wagon R
