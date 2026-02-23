@@ -352,3 +352,4 @@ Audi RS5
 Bentley Continental GTC
 Kodiak F1
 Lamborghini Gallardo
+Mercury Cyclone
