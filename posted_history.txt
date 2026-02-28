@@ -368,3 +368,4 @@ Bentley S2
 Audi Front
 Lexus IS
 Mercedes-Benz 500K
+Daihatsu Tanto Exe
