@@ -369,3 +369,4 @@ Audi Front
 Lexus IS
 Mercedes-Benz 500K
 Daihatsu Tanto Exe
+Lotus 26
