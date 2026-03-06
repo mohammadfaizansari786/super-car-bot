@@ -388,3 +388,4 @@ Alfa Romeo 8C
 Jaguar XJ6
 Ferrari Portofino
 BMW 329
+Dodge Coronet
