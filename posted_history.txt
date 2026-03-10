@@ -406,3 +406,4 @@ BMW M8
 Maserati 300S
 Jaguar Mark 1
 Chevrolet Corvette (C8)
+Ferrari 550
