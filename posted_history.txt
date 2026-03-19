@@ -428,3 +428,4 @@ Audi V8
 Alfa Romeo SZ
 Aston Martin Valour
 Mercedes-Benz 230
+Ferrari 195 S
