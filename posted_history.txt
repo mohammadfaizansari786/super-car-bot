@@ -427,3 +427,4 @@ American Muscle Car
 Audi V8
 Alfa Romeo SZ
 Aston Martin Valour
+Mercedes-Benz 230
