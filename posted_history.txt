@@ -431,3 +431,4 @@ Mercedes-Benz 230
 Ferrari 195 S
 Ferrari 328 GTB
 Porsche Macan
+SS 1
