@@ -435,3 +435,4 @@ SS 1
 Lamborghini Veneno
 Mazda R360
 Porsche Cayman GT4
+Ferrari 308 GTS
