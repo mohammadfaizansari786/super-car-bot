@@ -462,3 +462,4 @@ Jaguar B99
 BMW 1M
 Aston Martin Rapide Bertone Jet 2+2
 BMW i7
+Bentley Arnage
