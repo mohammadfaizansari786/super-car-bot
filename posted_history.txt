@@ -467,3 +467,4 @@ Lotus T125
 BMW 2000 Touring
 Daytona Sportscar
 Aston Martin V8
+Mercedes-Benz 280
