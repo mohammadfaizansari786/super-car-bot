@@ -480,3 +480,4 @@ Ferrari 456
 BMW 3.3L
 Boss 302 Mustang
 Alfa Romeo RM
+Chevrolet Corvette Z06 GT3.R
