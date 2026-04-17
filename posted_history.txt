@@ -492,3 +492,4 @@ Ferrari 599 GTO
 Porsche Taycan
 Mercedes-Benz EQS
 Bentley Continental R
+Ferrari 250
