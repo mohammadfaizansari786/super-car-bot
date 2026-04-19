@@ -496,3 +496,4 @@ Ferrari 250
 Lotus Exige
 Maserati 150 GT
 Ferrari 412
+Lotus 52
