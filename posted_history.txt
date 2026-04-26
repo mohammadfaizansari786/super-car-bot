@@ -517,3 +517,4 @@ Bentley Corniche
 Aston Martin DB5
 Ferrari 275 S
 Aston Martin DB9
+Bentley R Type
