@@ -528,3 +528,4 @@ Alfa Romeo 4C
 Oldsmobile Cutlass
 Alfa Romeo 2000 Berlina
 Ferrari 288 GTO
+Ford Mustang
