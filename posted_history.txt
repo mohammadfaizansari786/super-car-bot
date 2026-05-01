@@ -530,3 +530,4 @@ Alfa Romeo 2000 Berlina
 Ferrari 288 GTO
 Ford Mustang
 Audi A3
+Jaguar XK150
