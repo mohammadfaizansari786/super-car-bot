@@ -65,7 +65,7 @@ async function getF1News(history) {
   return null;
 }
 
-// --- 2. FORMAT USING OFFICIAL GEMINI SDK ---
+// --- 2. FORMAT USING OFFICIAL GEMINI 2.5 FLASH SDK ---
 async function processWithGemini(newsItem) {
   if (!GEMINI_KEY || GEMINI_KEY === "undefined" || GEMINI_KEY === "") {
     console.error("🚨 GEMINI_API_KEY is missing! Please check your GitHub Secrets.");
@@ -93,10 +93,10 @@ async function processWithGemini(newsItem) {
   }`;
 
   try {
-    // Initialize the official SDK
+    // Initialize the official SDK with gemini-2.5-flash
     const genAI = new GoogleGenerativeAI(GEMINI_KEY);
     const model = genAI.getGenerativeModel({ 
-        model:"gemini-1.5-flash-latest" ,
+        model: "gemini-2.5-flash",
         generationConfig: { responseMimeType: "application/json" }
     });
 
