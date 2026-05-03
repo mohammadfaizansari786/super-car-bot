@@ -2,6 +2,8 @@ const { TwitterApi } = require("twitter-api-v2");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+// IMPORT OFFICIAL GOOGLE AI SDK
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // --- CONFIGURATION ---
 const HISTORY_FILE = "posted_history.txt";
@@ -63,7 +65,7 @@ async function getF1News(history) {
   return null;
 }
 
-// --- 2. FORMAT LIKE 'RBR DAILY' USING GEMINI ---
+// --- 2. FORMAT USING OFFICIAL GEMINI SDK ---
 async function processWithGemini(newsItem) {
   if (!GEMINI_KEY || GEMINI_KEY === "undefined" || GEMINI_KEY === "") {
     console.error("🚨 GEMINI_API_KEY is missing! Please check your GitHub Secrets.");
@@ -91,19 +93,23 @@ async function processWithGemini(newsItem) {
   }`;
 
   try {
-    const res = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_KEY}`,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { response_mime_type: "application/json" }
-      }
-    );
+    // Initialize the official SDK
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
+    const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        generationConfig: { responseMimeType: "application/json" }
+    });
 
-    const text = res.data.candidates[0].content.parts[0].text;
+    // Generate content
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    
+    // Clean and parse JSON
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanText);
+
   } catch (e) {
-    console.error("Gemini Generation Error:", e.message);
+    console.error("Gemini SDK Error:", e.message);
     return null;
   }
 }
