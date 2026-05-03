@@ -40,25 +40,27 @@ async function getF1News(history) {
   // STRICTLY Tier 1, highly accurate F1 journalism sources
   const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
-  // Targeted keywords for actual news, upgrades, and verified quotes
+  // REMOVED generic words like "paddock" or "news".
+  // STRICTLY hunting for quotes, interviews, and official drama.
   let topics = [
-    "driver interview quote",
-    "Hamilton Ferrari news",
-    "Verstappen Red Bull comments",
-    "McLaren upgrades",
-    "Ferrari updates",
-    "Mercedes Toto Wolff interview",
-    "FIA official statement",
-    "F1 breaking news confirmed"
+    "Verstappen quote OR interview",
+    "Hamilton quote OR interview",
+    "Leclerc quote OR interview",
+    "Norris quote OR team radio",
+    "Toto Wolff comments OR interview",
+    "Christian Horner statement OR comments",
+    "FIA official penalty OR investigation",
+    "driver slams OR angry",
+    "major upgrade confirmed"
   ];
 
   if (isWeekend) {
     topics = topics.concat([
-      "FP1 OR FP2 times F1",
-      "qualifying session results F1",
-      "race winner F1",
+      "qualifying session quotes F1",
+      "race winner interview F1",
       "grid penalty confirmed F1",
-      "official race results F1"
+      "official race results F1",
+      "crash incident investigation F1"
     ]);
   }
 
@@ -147,13 +149,12 @@ async function getImage(query) {
     const currentYear = new Date().getFullYear();
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
       params: {
-        // Appending F1 and the current year to ensure accuracy
         q: `${query} F1 ${currentYear}`,
         cx: CX_ID,
         key: GOOGLE_KEY,
         searchType: "image",
-        imgType: "photo", // STRICTLY real photographs (no logos, charts, or drawings)
-        imgSize: "large", // High quality only
+        imgType: "photo", // STRICTLY real photographs
+        imgSize: "large",
         num: 3
       }
     });
