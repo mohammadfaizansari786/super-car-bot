@@ -1,7 +1,7 @@
 {
-  "name": "super-car-bot",
-  "version": "7.0.0",
-  "description": "Consistent Gallery Bot",
+  "name": "f1-news-bot",
+  "version": "8.0.0",
+  "description": "Automated F1 News & Statements Twitter Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -11,4 +11,3 @@
     "axios": "^1.6.8"
   }
 }
-
