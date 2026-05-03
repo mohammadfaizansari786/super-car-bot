@@ -33,7 +33,6 @@ function saveHistory(link) {
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
-  // Mix up the queries to keep the news varied
   const queries = [
     "Formula 1 news", "F1 statement", "Red Bull Racing F1", 
     "Mercedes F1 news", "Ferrari F1 news", "Max Verstappen F1", 
@@ -47,14 +46,13 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d2", // Restrict to the last 48 hours for fresh news
+        dateRestrict: "d2", // Last 48 hours
         num: 10
       }
     });
 
     const items = res.data.items || [];
     for (const item of items) {
-      // Check if we already posted this exact link or title
       if (!history.has(item.link) && !history.has(item.title)) {
         return item;
       }
@@ -67,7 +65,10 @@ async function getF1News(history) {
 
 // --- 2. FORMAT LIKE 'RBR DAILY' USING GEMINI ---
 async function processWithGemini(newsItem) {
-  if (!GEMINI_KEY) throw new Error("Gemini API key missing");
+  if (!GEMINI_KEY || GEMINI_KEY === "undefined" || GEMINI_KEY === "") {
+    console.error("🚨 GEMINI_API_KEY is missing! Please check your GitHub Secrets.");
+    return null;
+  }
 
   const prompt = `You are a highly engaging Formula 1 news account on X (Twitter), similar to 'RBR Daily', 'F1 Fall', or 'Motorsport'.
   Your task is to take the following news headline and snippet, and rewrite it into a highly natural, engaging tweet.
@@ -91,7 +92,7 @@ async function processWithGemini(newsItem) {
 
   try {
     const res = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_KEY}`,
       {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { response_mime_type: "application/json" }
@@ -99,8 +100,6 @@ async function processWithGemini(newsItem) {
     );
 
     const text = res.data.candidates[0].content.parts[0].text;
-    
-    // Clean up potential markdown formatting from Gemini
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanText);
   } catch (e) {
@@ -125,7 +124,6 @@ async function getImage(query) {
 
     const items = res.data.items || [];
     if (items.length > 0) {
-      // Pick the first valid image
       const imgUrl = items[0].link;
       const imgPath = path.join(__dirname, `f1_img_${Date.now()}.jpg`);
 
@@ -192,14 +190,12 @@ async function run() {
 
     console.log(`✅ Post successful! ID: ${resp.data.id}`);
     
-    // Save both the link and title so it doesn't post duplicate news
     saveHistory(newsItem.link);
     saveHistory(newsItem.title);
 
   } catch (error) {
     console.error("Twitter API Error:", error.message);
   } finally {
-    // Clean up downloaded image
     if (imgPath && fs.existsSync(imgPath)) {
       fs.unlinkSync(imgPath);
     }
