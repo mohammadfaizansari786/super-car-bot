@@ -1,20 +1,25 @@
 name: F1 News Bot
 on:
   schedule:
-    - cron: '0 */3 * * *' # Runs every 3 hours
+    # 🏎️ RACE WEEKEND: Runs every 2 hours on Friday (5), Saturday (6), and Sunday (0)
+    - cron: '0 */2 * * 0,5,6'
+    
+    # 🛋️ WEEKDAYS: Runs every 6 hours on Monday (1) through Thursday (4)
+    - cron: '0 */6 * * 1-4'
+    
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
-      # Updated from v3 to v4
       - uses: actions/checkout@v4
-      
-      # Updated from v3 to v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22' # Upgraded to a newer Node.js LTS version
-          
+          node-version: '22'
       - run: npm install
       - run: node index.js
         env:
