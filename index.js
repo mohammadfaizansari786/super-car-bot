@@ -30,22 +30,22 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET SPICY / BREAKING F1 NEWS ---
+// --- 1. GET SPICY / BREAKING F1 NEWS (STRICTLY NEWEST) ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
-  // These queries specifically hunt for controversies, leaks, and driver media quotes
-  const currentYear = new Date().getFullYear();
+  // Removed the explicit year here so Google doesn't fetch old "2026 regulation" articles.
+  // We just want whatever is happening *right now*.
   const queries = [
-    `F1 driver interview quote ${currentYear}`,
-    `Formula 1 controversial statement ${currentYear}`,
-    `F1 paddock rumors ${currentYear}`,
-    `F1 leaked photos upgrades ${currentYear}`,
-    `F1 team changes drama ${currentYear}`,
-    `Max Verstappen media comments ${currentYear}`,
-    `Lewis Hamilton Ferrari rumors ${currentYear}`,
-    `Christian Horner statement F1 ${currentYear}`,
-    `F1 breaking news controversy ${currentYear}`
+    "F1 driver interview quote",
+    "Formula 1 controversial statement",
+    "F1 paddock rumors",
+    "F1 leaked photos upgrades",
+    "F1 team changes drama",
+    "Max Verstappen media comments",
+    "Lewis Hamilton Ferrari news",
+    "Christian Horner statement F1",
+    "F1 breaking news"
   ];
   const query = queries[Math.floor(Math.random() * queries.length)];
 
@@ -55,7 +55,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d2", // Strictly last 48 hours for fresh drama
+        dateRestrict: "d1", // Strictly the last 24 hours
+        sort: "date",       // FORCES Google to sort by the newest article first
         num: 10
       }
     });
@@ -79,12 +80,14 @@ async function processWithGemini(newsItem) {
     return null;
   }
 
+  // Get the exact current date (e.g., "Sun May 03 2026")
+  const currentDate = new Date().toDateString();
   const currentYear = new Date().getFullYear();
 
-  // The prompt forces the AI to focus on the controversy, leak, or quote
+  // The prompt gives the AI the exact date so it never sounds outdated
   const prompt = `You are a human admin running a massive Formula 1 fan account on X (Twitter), specifically styled like 'RBR Daily' or 'Motorsport'. 
-  The current year is ${currentYear}. You must keep this in mind (e.g. Hamilton is at Ferrari, the new ${currentYear} regs are active).
-  Your job is to read the news headline and snippet below, extract the most dramatic, controversial, or breaking piece of information (like a leaked photo, driver quote, or team change), and write a punchy tweet.
+  Today's exact date is ${currentDate}. You must keep this in mind (e.g. Hamilton is at Ferrari, the new ${currentYear} regs are active).
+  Your job is to read the news headline and snippet below, extract the most dramatic, controversial, or breaking piece of information, and write a punchy tweet.
   
   CRITICAL RULES:
   1. DO NOT sound like an AI. Never use phrases like "Buckle up F1 fans," "What do you think?", or "Breaking news in the world of F1!".
@@ -94,7 +97,7 @@ async function processWithGemini(newsItem) {
   4. Formatting for Leaks/Rumors/Changes:
      🚨 | [The actual news straight to the point].
   5. You may add a tiny, organic human reaction at the very end if it fits (e.g., "Huge if true.", "Interesting...", "Wow.", "Thoughts?"), but keep it minimal.
-  6. Use only 1 or 2 relevant hashtags maximum (e.g., #F1, #RedBullRacing).
+  6. Use only 1 or 2 relevant hashtags maximum (e.g., #F1).
   7. Provide a highly specific 3-4 word search query to find an exact photo of the person, car, or leaked part mentioned (e.g., "Max Verstappen angry media", "F1 ${currentYear} leaked floor", "Toto Wolff serious").
   
   News Title: ${newsItem.title}
@@ -129,7 +132,6 @@ async function processWithGemini(newsItem) {
 async function getImage(query) {
   try {
     const currentYear = new Date().getFullYear();
-    // Appending the dynamic year to ensure we get news-style photos from the current season
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
       params: {
         q: query + ` F1 ${currentYear} high resolution news photo`,
