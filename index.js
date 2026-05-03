@@ -30,41 +30,42 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET SPICY / BREAKING F1 NEWS (STRICTLY NEWEST) ---
+// --- 1. GET F1 NEWS STRICTLY FROM TRUSTED SITES ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
-  // Check if today is a Race Weekend (Friday=5, Saturday=6, Sunday=0)
   const today = new Date().getDay();
   const isWeekend = [0, 5, 6].includes(today);
 
-  // Default weekday queries (Drama, Rumors, Transfers)
-  let queries = [
-    "F1 driver interview quote",
-    "Formula 1 controversial statement",
-    "F1 paddock rumors",
-    "F1 leaked photos upgrades",
-    "F1 team changes drama",
-    "Max Verstappen media comments",
-    "Lewis Hamilton Ferrari news",
-    "Christian Horner statement F1",
-    "F1 breaking news controversy"
+  // Focus only on top-tier journalism sites to avoid old SEO spam
+  const trustedSites = "(site:racingnews365.com OR site:motorsport.com OR site:the-race.com OR site:planetf1.com OR site:autosport.com)";
+
+  // Base topics
+  let topics = [
+    "driver quote",
+    "interview",
+    "paddock rumors",
+    "upgrades leak",
+    "team drama",
+    "Max Verstappen",
+    "Lewis Hamilton Ferrari",
+    "breaking news"
   ];
 
-  // If it's a Race Weekend, aggressively add live session keywords to the pool!
+  // Add weekend specific keywords
   if (isWeekend) {
-    queries = queries.concat([
-      "F1 free practice results today",
-      "F1 qualifying lap times updates",
-      "F1 race results winner",
-      "Formula 1 live updates paddock",
-      "F1 sprint race drama",
-      "F1 track limits penalty today",
-      "F1 crash red flag news"
+    topics = topics.concat([
+      "free practice results",
+      "qualifying session",
+      "race winner",
+      "sprint race",
+      "FIA penalty track limits",
+      "crash red flag"
     ]);
   }
 
-  const query = queries[Math.floor(Math.random() * queries.length)];
+  const topic = topics[Math.floor(Math.random() * topics.length)];
+  const query = `Formula 1 ${topic} ${trustedSites}`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -72,8 +73,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d1", // Strictly the last 24 hours
-        sort: "date",       // FORCES Google to sort by the newest article first
+        dateRestrict: "d1", // strictly last 24 hours
+        sort: "date",       // strictly newest first
         num: 10
       }
     });
@@ -81,7 +82,7 @@ async function getF1News(history) {
     const items = res.data.items || [];
     for (const item of items) {
       if (!history.has(item.link) && !history.has(item.title)) {
-        return item;
+        return item; // Returns the full item object, including the link!
       }
     }
   } catch (e) {
@@ -97,25 +98,24 @@ async function processWithGemini(newsItem) {
     return null;
   }
 
-  // Get the exact current date (e.g., "Sun May 03 2026")
   const currentDate = new Date().toDateString();
   const currentYear = new Date().getFullYear();
 
-  // The prompt gives the AI the exact date so it never sounds outdated
+  // Prompt updated to strictly limit length to allow room for the URL
   const prompt = `You are a human admin running a massive Formula 1 fan account on X (Twitter), specifically styled like 'RBR Daily' or 'Motorsport'. 
   Today's exact date is ${currentDate}. You must keep this in mind (e.g. Hamilton is at Ferrari, the new ${currentYear} regs are active).
-  Your job is to read the news headline and snippet below, extract the most dramatic, controversial, or breaking piece of information, and write a punchy tweet.
+  Your job is to read the news headline and snippet below, extract the most dramatic or breaking piece of information, and write a punchy tweet.
   
   CRITICAL RULES:
-  1. DO NOT sound like an AI. Never use phrases like "Buckle up F1 fans," "What do you think?", or "Breaking news in the world of F1!".
-  2. Be direct and punchy. Real fan accounts just post the raw quote, the rumor, or the controversy.
-  3. Formatting for Quotes to the Media:
-     🗣️ | [Driver/Team Principal Name]: "Exact controversial/interesting quote."
-  4. Formatting for Leaks/Rumors/Changes:
+  1. DO NOT sound like an AI. Never use generic phrases like "Buckle up F1 fans," or "Breaking news in the world of F1!".
+  2. Keep the tweet text UNDER 200 CHARACTERS. (We are appending a link later).
+  3. Formatting for Quotes:
+     🗣️ | [Name]: "Exact quote."
+  4. Formatting for News:
      🚨 | [The actual news straight to the point].
-  5. You may add a tiny, organic human reaction at the very end if it fits (e.g., "Huge if true.", "Interesting...", "Wow.", "Thoughts?"), but keep it minimal.
+  5. Add a tiny, organic human reaction at the very end if it fits (e.g., "Huge if true.", "Wow.").
   6. Use only 1 or 2 relevant hashtags maximum (e.g., #F1).
-  7. Provide a highly specific 3-4 word search query to find an exact photo of the person, car, or leaked part mentioned (e.g., "Max Verstappen angry media", "F1 ${currentYear} leaked floor", "Toto Wolff serious").
+  7. Provide a highly specific 3-4 word search query to find an exact photo of the subject (e.g., "Max Verstappen angry media", "F1 ${currentYear} leaked floor").
   
   News Title: ${newsItem.title}
   News Snippet: ${newsItem.snippet}
@@ -198,7 +198,7 @@ async function run() {
     return;
   }
 
-  console.log(`📰 Found News: ${newsItem.title}`);
+  console.log(`📰 Found News: ${newsItem.title} from ${newsItem.link}`);
 
   const content = await processWithGemini(newsItem);
   if (!content || !content.tweet) {
@@ -206,7 +206,10 @@ async function run() {
     return;
   }
 
-  console.log(`📝 Tweet Draft: \n${content.tweet}`);
+  // Inject the source link cleanly at the end of the tweet
+  const finalTweetText = `${content.tweet}\n\n📰 Source: ${newsItem.link}`;
+
+  console.log(`📝 Tweet Draft: \n${finalTweetText}`);
   console.log(`🖼️ Searching Image Query: ${content.imageQuery}`);
 
   const imgPath = await getImage(content.imageQuery);
@@ -218,7 +221,7 @@ async function run() {
       mediaId = await client.v1.uploadMedia(imgPath);
     }
 
-    const tweetPayload = { text: content.tweet };
+    const tweetPayload = { text: finalTweetText };
     if (mediaId) {
       tweetPayload.media = { media_ids: [mediaId] };
     }
