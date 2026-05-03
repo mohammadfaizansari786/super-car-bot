@@ -1,7 +1,7 @@
-name: Auto Car Bot
+name: F1 News Bot
 on:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */3 * * *' # Runs every 3 hours
   workflow_dispatch:
 jobs:
   run-bot:
@@ -23,9 +23,8 @@ jobs:
           SEARCH_ENGINE_ID: ${{ secrets.SEARCH_ENGINE_ID }}
       - name: Save Bot History
         run: |
-          git config --global user.name "CarBot"
+          git config --global user.name "F1 Bot"
           git config --global user.email "bot@github.com"
           git add posted_history.txt
-          git commit -m "Update history" || echo "No changes"
+          git commit -m "Update F1 news history" || echo "No changes"
           git push
-          
