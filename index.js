@@ -30,46 +30,46 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET F1 NEWS STRICTLY FROM F1-ONLY SITES ---
+// --- 1. GET SPICY F1 NEWS STRICTLY FROM GOSSIP/QUOTE-HEAVY SITES ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
   const today = new Date().getDay();
   const isWeekend = [0, 5, 6].includes(today);
 
-  // We strictly use F1-only domains to prevent Karting/MotoGP news from leaking in
-  const f1OnlySites = "(site:racingnews365.com OR site:planetf1.com OR site:gpfans.com OR site:formu1a.uno)";
+  // Expanded list of sites that heavily focus on F1 quotes, rumors, and controversies
+  const f1OnlySites = "(site:racingnews365.com OR site:planetf1.com OR site:gpfans.com OR site:formu1a.uno OR site:crash.net OR site:f1i.com OR site:f1oversteer.com OR site:grandprix247.com)";
 
-  // Base topics
+  // Base topics - heavily focused on drama, quotes, and rumors
   let topics = [
-    "Verstappen",
-    "Hamilton",
-    "Leclerc",
-    "Norris",
-    "Red Bull drama",
-    "Ferrari upgrade",
-    "Mercedes rumors",
-    "FIA controversial",
-    "paddock leak"
+    "Verstappen quote OR angry",
+    "Hamilton Ferrari slams OR interview",
+    "Leclerc OR Sainz controversial",
+    "Norris OR Piastri McLaren team radio",
+    "Red Bull drama OR Horner quote",
+    "F1 upgrade leak OR paddock rumor",
+    "Mercedes Toto Wolff hits out",
+    "FIA controversial penalty",
+    "driver slams F1 OR hits out",
+    "F1 gossip OR transfer rumor"
   ];
 
-  // Add weekend specific keywords
+  // Add weekend specific keywords (crashes, drama, penalties)
   if (isWeekend) {
     topics = topics.concat([
-      "FP1 results",
-      "FP2 results",
-      "qualifying pole",
-      "sprint winner",
-      "race winner",
-      "crash red flag",
-      "grid penalty"
+      "FP1 OR FP2 results F1",
+      "qualifying pole F1",
+      "sprint race drama F1",
+      "race winner F1",
+      "crash red flag F1",
+      "grid penalty controversial F1"
     ]);
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
   
-  // 'intitle:"F1"' forces Google to ensure F1 is actually in the headline
-  const query = `intitle:"F1" ${topic} ${f1OnlySites}`;
+  // "Formula 1" is appended to ensure sites like Crash.net don't pull MotoGP by accident
+  const query = `Formula 1 ${topic} ${f1OnlySites}`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -77,8 +77,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d1", // strictly last 24 hours
-        sort: "date",       // strictly newest first
+        dateRestrict: "d2", // Last 48 hours for a wider net
+        sort: "date",       // STILL forces newest article first
         num: 10
       }
     });
@@ -107,16 +107,16 @@ async function processWithGemini(newsItem) {
 
   const prompt = `You are a human admin running a massive Formula 1 fan account on X (Twitter), specifically styled like 'RBR Daily' or 'Motorsport'. 
   Today's exact date is ${currentDate}. You must keep this in mind (e.g. Hamilton is at Ferrari, the new ${currentYear} regs are active).
-  Your job is to read the news headline and snippet below, extract the most dramatic or breaking piece of information, and write a punchy tweet.
+  Your job is to read the news headline and snippet below, extract the most dramatic, spicy, or breaking piece of information (especially driver quotes), and write a punchy tweet.
   
   CRITICAL RULES:
-  1. DO NOT sound like an AI. Never use generic phrases like "Buckle up F1 fans," or "Breaking news in the world of F1!".
-  2. Keep the tweet text UNDER 200 CHARACTERS. (We are appending a link later).
+  1. DO NOT sound like an AI. Never use generic phrases like "Buckle up F1 fans," or "Breaking news!".
+  2. Keep the tweet text UNDER 200 CHARACTERS to leave room for the source link.
   3. Formatting for Quotes:
-     🗣️ | [Name]: "Exact quote."
-  4. Formatting for News:
+     🗣️ | [Name]: "Exact spicy/controversial quote."
+  4. Formatting for Rumors/News:
      🚨 | [The actual news straight to the point].
-  5. Add a tiny, organic human reaction at the very end if it fits (e.g., "Huge if true.", "Wow.").
+  5. Add a tiny, organic human reaction at the very end if it fits (e.g., "Huge if true.", "Wow.", "Interesting...").
   6. Use only 1 or 2 relevant hashtags maximum (e.g., #F1).
   7. Provide a highly specific 3-4 word search query to find an exact photo of the subject (e.g., "Max Verstappen angry media", "F1 ${currentYear} leaked floor").
   
