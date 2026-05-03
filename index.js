@@ -34,9 +34,12 @@ function saveHistory(link) {
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
-  // Removed the explicit year here so Google doesn't fetch old "2026 regulation" articles.
-  // We just want whatever is happening *right now*.
-  const queries = [
+  // Check if today is a Race Weekend (Friday=5, Saturday=6, Sunday=0)
+  const today = new Date().getDay();
+  const isWeekend = [0, 5, 6].includes(today);
+
+  // Default weekday queries (Drama, Rumors, Transfers)
+  let queries = [
     "F1 driver interview quote",
     "Formula 1 controversial statement",
     "F1 paddock rumors",
@@ -45,8 +48,22 @@ async function getF1News(history) {
     "Max Verstappen media comments",
     "Lewis Hamilton Ferrari news",
     "Christian Horner statement F1",
-    "F1 breaking news"
+    "F1 breaking news controversy"
   ];
+
+  // If it's a Race Weekend, aggressively add live session keywords to the pool!
+  if (isWeekend) {
+    queries = queries.concat([
+      "F1 free practice results today",
+      "F1 qualifying lap times updates",
+      "F1 race results winner",
+      "Formula 1 live updates paddock",
+      "F1 sprint race drama",
+      "F1 track limits penalty today",
+      "F1 crash red flag news"
+    ]);
+  }
+
   const query = queries[Math.floor(Math.random() * queries.length)];
 
   try {
