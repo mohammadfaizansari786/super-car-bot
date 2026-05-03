@@ -96,7 +96,7 @@ async function processWithGemini(newsItem) {
     // Initialize the official SDK
     const genAI = new GoogleGenerativeAI(GEMINI_KEY);
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model:"gemini-1.5-flash-latest" ,
         generationConfig: { responseMimeType: "application/json" }
     });
 
