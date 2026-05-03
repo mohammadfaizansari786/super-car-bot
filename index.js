@@ -40,18 +40,18 @@ async function getF1News(history) {
   // STRICTLY Tier 1, highly accurate F1 journalism sources
   const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
-  // REMOVED generic words like "paddock" or "news".
-  // STRICTLY hunting for quotes, interviews, and official drama.
+  // Balanced topics: Hard F1 News + Specific Driver Quotes
   let topics = [
-    "Verstappen quote OR interview",
-    "Hamilton quote OR interview",
-    "Leclerc quote OR interview",
-    "Norris quote OR team radio",
-    "Toto Wolff comments OR interview",
-    "Christian Horner statement OR comments",
-    "FIA official penalty OR investigation",
-    "driver slams OR angry",
-    "major upgrade confirmed"
+    "Verstappen interview OR quote",
+    "Hamilton Ferrari news OR interview",
+    "Leclerc Ferrari update OR quote",
+    "Norris McLaren upgrade OR news",
+    "Mercedes F1 official announcement",
+    "Christian Horner statement F1",
+    "FIA penalty investigation F1",
+    "F1 driver contract transfer",
+    "F1 breaking news confirmed",
+    "major car upgrade F1"
   ];
 
   if (isWeekend) {
