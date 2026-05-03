@@ -30,45 +30,39 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET SPICY F1 NEWS STRICTLY FROM GOSSIP/QUOTE-HEAVY SITES ---
+// --- 1. GET NEWS STRICTLY FROM TIER-1 ACCURATE F1 SITES ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
   const today = new Date().getDay();
   const isWeekend = [0, 5, 6].includes(today);
 
-  // Expanded list of sites that heavily focus on F1 quotes, rumors, and controversies
-  const f1OnlySites = "(site:racingnews365.com OR site:planetf1.com OR site:gpfans.com OR site:formu1a.uno OR site:crash.net OR site:f1i.com OR site:f1oversteer.com OR site:grandprix247.com)";
+  // STRICTLY Tier 1, highly accurate F1 journalism sources
+  const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
-  // Base topics - heavily focused on drama, quotes, and rumors
+  // Targeted keywords for actual news, upgrades, and verified quotes
   let topics = [
-    "Verstappen quote OR angry",
-    "Hamilton Ferrari slams OR interview",
-    "Leclerc OR Sainz controversial",
-    "Norris OR Piastri McLaren team radio",
-    "Red Bull drama OR Horner quote",
-    "F1 upgrade leak OR paddock rumor",
-    "Mercedes Toto Wolff hits out",
-    "FIA controversial penalty",
-    "driver slams F1 OR hits out",
-    "F1 gossip OR transfer rumor"
+    "driver interview quote",
+    "Hamilton Ferrari news",
+    "Verstappen Red Bull comments",
+    "McLaren upgrades",
+    "Ferrari updates",
+    "Mercedes Toto Wolff interview",
+    "FIA official statement",
+    "F1 breaking news confirmed"
   ];
 
-  // Add weekend specific keywords (crashes, drama, penalties)
   if (isWeekend) {
     topics = topics.concat([
-      "FP1 OR FP2 results F1",
-      "qualifying pole F1",
-      "sprint race drama F1",
+      "FP1 OR FP2 times F1",
+      "qualifying session results F1",
       "race winner F1",
-      "crash red flag F1",
-      "grid penalty controversial F1"
+      "grid penalty confirmed F1",
+      "official race results F1"
     ]);
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  
-  // "Formula 1" is appended to ensure sites like Crash.net don't pull MotoGP by accident
   const query = `Formula 1 ${topic} ${f1OnlySites}`;
 
   try {
@@ -77,8 +71,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d2", // Last 48 hours for a wider net
-        sort: "date",       // STILL forces newest article first
+        dateRestrict: "d2", // Last 48 hours
+        sort: "date",       // Newest article first
         num: 10
       }
     });
@@ -95,7 +89,7 @@ async function getF1News(history) {
   return null;
 }
 
-// --- 2. FORMAT LIKE A HUMAN ADMIN (RBR DAILY STYLE) ---
+// --- 2. FORMAT LIKE A PROFESSIONAL HUMAN ADMIN ---
 async function processWithGemini(newsItem) {
   if (!GEMINI_KEY || GEMINI_KEY === "undefined" || GEMINI_KEY === "") {
     console.error("🚨 GEMINI_API_KEY is missing! Please check your GitHub Secrets.");
@@ -105,20 +99,19 @@ async function processWithGemini(newsItem) {
   const currentDate = new Date().toDateString();
   const currentYear = new Date().getFullYear();
 
-  const prompt = `You are a human admin running a massive Formula 1 fan account on X (Twitter), specifically styled like 'RBR Daily' or 'Motorsport'. 
-  Today's exact date is ${currentDate}. You must keep this in mind (e.g. Hamilton is at Ferrari, the new ${currentYear} regs are active).
-  Your job is to read the news headline and snippet below, extract the most dramatic, spicy, or breaking piece of information (especially driver quotes), and write a punchy tweet.
+  const prompt = `You are a professional human admin for a top-tier Formula 1 news account on X (Twitter).
+  Today's exact date is ${currentDate} (${currentYear} season).
+  Read the news headline and snippet below, and write a tweet that feels 100% human, accurate, and straight to the point.
   
   CRITICAL RULES:
-  1. DO NOT sound like an AI. Never use generic phrases like "Buckle up F1 fans," or "Breaking news!".
-  2. Keep the tweet text UNDER 200 CHARACTERS to leave room for the source link.
-  3. Formatting for Quotes:
-     🗣️ | [Name]: "Exact spicy/controversial quote."
-  4. Formatting for Rumors/News:
-     🚨 | [The actual news straight to the point].
-  5. Add a tiny, organic human reaction at the very end if it fits (e.g., "Huge if true.", "Wow.", "Interesting...").
-  6. Use only 1 or 2 relevant hashtags maximum (e.g., #F1).
-  7. Provide a highly specific 3-4 word search query to find an exact photo of the subject (e.g., "Max Verstappen angry media", "F1 ${currentYear} leaked floor").
+  1. ZERO AI SPEAK. Never use phrases like "Buckle up," or "Thoughts?". Just deliver the news or the quote cleanly.
+  2. STRICT EMOJI RULE: You may use EXACTLY ONE emoji, and it MUST be the very first character of the tweet (e.g., 🚨 for news or 🗣️ for quotes). Do NOT use any other emojis anywhere else in the text.
+  3. Formatting Examples:
+     🗣️ | Max Verstappen: "It was a tough race today."
+     🚨 | Mercedes confirms a new floor upgrade for Miami.
+  4. Keep the tweet text UNDER 200 CHARACTERS to leave room for the source link.
+  5. Use only 1 hashtag maximum (e.g., #F1).
+  6. EXACT IMAGE MATCH: For 'imageQuery', extract the main visual subject of the article so the image matches perfectly. Provide a simple 2-3 word search query combining the person/car and their current team (e.g., "Lewis Hamilton Ferrari", "Toto Wolff Mercedes", "McLaren F1 car").
   
   News Title: ${newsItem.title}
   News Snippet: ${newsItem.snippet}
@@ -126,7 +119,7 @@ async function processWithGemini(newsItem) {
   Respond STRICTLY in this JSON format:
   {
     "tweet": "Your human-sounding tweet draft here",
-    "imageQuery": "Specific search query for the photo"
+    "imageQuery": "Simple 2-3 word search query for the photo"
   }`;
 
   try {
@@ -148,17 +141,19 @@ async function processWithGemini(newsItem) {
   }
 }
 
-// --- 3. GET A RELEVANT IMAGE ---
+// --- 3. GET STRICTLY ACCURATE PHOTOS ---
 async function getImage(query) {
   try {
     const currentYear = new Date().getFullYear();
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
       params: {
-        q: query + ` F1 ${currentYear} high resolution news photo`,
+        // Appending F1 and the current year to ensure accuracy
+        q: `${query} F1 ${currentYear}`,
         cx: CX_ID,
         key: GOOGLE_KEY,
         searchType: "image",
-        imgSize: "large",
+        imgType: "photo", // STRICTLY real photographs (no logos, charts, or drawings)
+        imgSize: "large", // High quality only
         num: 3
       }
     });
