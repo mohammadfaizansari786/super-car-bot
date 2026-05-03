@@ -30,42 +30,46 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET F1 NEWS STRICTLY FROM TRUSTED SITES ---
+// --- 1. GET F1 NEWS STRICTLY FROM F1-ONLY SITES ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
   const today = new Date().getDay();
   const isWeekend = [0, 5, 6].includes(today);
 
-  // Focus only on top-tier journalism sites to avoid old SEO spam
-  const trustedSites = "(site:racingnews365.com OR site:motorsport.com OR site:the-race.com OR site:planetf1.com OR site:autosport.com)";
+  // We strictly use F1-only domains to prevent Karting/MotoGP news from leaking in
+  const f1OnlySites = "(site:racingnews365.com OR site:planetf1.com OR site:gpfans.com OR site:formu1a.uno)";
 
   // Base topics
   let topics = [
-    "driver quote",
-    "interview",
-    "paddock rumors",
-    "upgrades leak",
-    "team drama",
-    "Max Verstappen",
-    "Lewis Hamilton Ferrari",
-    "breaking news"
+    "Verstappen",
+    "Hamilton",
+    "Leclerc",
+    "Norris",
+    "Red Bull drama",
+    "Ferrari upgrade",
+    "Mercedes rumors",
+    "FIA controversial",
+    "paddock leak"
   ];
 
   // Add weekend specific keywords
   if (isWeekend) {
     topics = topics.concat([
-      "free practice results",
-      "qualifying session",
+      "FP1 results",
+      "FP2 results",
+      "qualifying pole",
+      "sprint winner",
       "race winner",
-      "sprint race",
-      "FIA penalty track limits",
-      "crash red flag"
+      "crash red flag",
+      "grid penalty"
     ]);
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  const query = `Formula 1 ${topic} ${trustedSites}`;
+  
+  // 'intitle:"F1"' forces Google to ensure F1 is actually in the headline
+  const query = `intitle:"F1" ${topic} ${f1OnlySites}`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -82,7 +86,7 @@ async function getF1News(history) {
     const items = res.data.items || [];
     for (const item of items) {
       if (!history.has(item.link) && !history.has(item.title)) {
-        return item; // Returns the full item object, including the link!
+        return item; 
       }
     }
   } catch (e) {
@@ -101,7 +105,6 @@ async function processWithGemini(newsItem) {
   const currentDate = new Date().toDateString();
   const currentYear = new Date().getFullYear();
 
-  // Prompt updated to strictly limit length to allow room for the URL
   const prompt = `You are a human admin running a massive Formula 1 fan account on X (Twitter), specifically styled like 'RBR Daily' or 'Motorsport'. 
   Today's exact date is ${currentDate}. You must keep this in mind (e.g. Hamilton is at Ferrari, the new ${currentYear} regs are active).
   Your job is to read the news headline and snippet below, extract the most dramatic or breaking piece of information, and write a punchy tweet.
