@@ -1,4 +1,3 @@
-
 const { TwitterApi } = require("twitter-api-v2");
 const axios = require("axios");
 const fs = require("fs");
@@ -40,7 +39,6 @@ async function getF1News(history) {
 
   const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
-  // Simplified topics to guarantee we always get hits without confusing Google
   let topics = [
     "Verstappen interview",
     "Hamilton Ferrari quote",
@@ -65,9 +63,6 @@ async function getF1News(history) {
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  
-  // REMOVED the aggressive minus operators (-results) so we don't accidentally block good articles!
-  // We added -standings just to keep pure points lists away.
   const query = `Formula 1 ${topic} -standings ${f1OnlySites}`;
 
   try {
@@ -76,8 +71,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d3", // Expanded to 72 hours so it NEVER fails on a slow news day
-        sort: "date",       // Still forces the absolute newest article to the top
+        dateRestrict: "d3",
+        sort: "date",
         num: 10
       }
     });
@@ -114,7 +109,7 @@ async function processWithGemini(newsItem) {
   3. STRICT 'FORMULA RACERS' FORMATTING:
      For News/Upgrades: 🚨 | [Detailed, objective statement of the news, including important context from the article].
      For Quotes: 🗣️ | [Name]: "Exact quote." [Add a brief follow-up sentence explaining the context if necessary].
-  4. LENGTH RULE: Write a longer, more detailed tweet (between 200 and 250 characters). Make it substantial and informative, but STRICTLY do not exceed 250 characters to leave room for the source link.
+  4. LENGTH RULE: Write a tweet between 150 and 220 characters. It is CRITICAL that you do not exceed 220 characters, as room must be left for the source link.
   5. Use only 1 hashtag maximum (e.g., #F1).
   6. EXACT IMAGE MATCH: Provide a simple 2-3 word search query combining the main person/car and their current team (e.g., "Lewis Hamilton Ferrari", "McLaren F1 car").
   
@@ -218,8 +213,16 @@ async function run() {
     return;
   }
 
-  // Inject the source link cleanly at the end of the tweet
-  const finalTweetText = `${content.tweet}\n\n📰 Source: ${newsItem.link}`;
+  // --- THE NEW LENGTH SAFEGUARD ---
+  let safeTweetText = content.tweet;
+  // Maximum safe length for the AI text to leave room for the Source link and Twitter limits
+  if (safeTweetText.length > 230) {
+    safeTweetText = safeTweetText.substring(0, 227) + "...";
+    console.log("⚠️ Tweet was too long. Truncated safely to fit API limits.");
+  }
+
+  // Inject the source link cleanly at the end of the safe tweet
+  const finalTweetText = `${safeTweetText}\n\n📰 Source: ${newsItem.link}`;
 
   console.log(`📝 Tweet Draft: \n${finalTweetText}`);
   console.log(`🖼️ Searching Image Query: ${content.imageQuery}`);
