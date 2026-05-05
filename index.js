@@ -30,7 +30,7 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET NEWS STRICTLY FROM TIER-1 SITES (F1 ONLY) ---
+// --- 1. GET NEWS STRICTLY FROM TIER-1 SITES (WITH RETRY LOOP) ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
@@ -40,7 +40,7 @@ async function getF1News(history) {
   const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
   let topics = [
-    "Verstappen interview",
+    "Verstappen interview OR quote",
     "Hamilton Ferrari quote",
     "Leclerc Ferrari news",
     "Norris McLaren update",
@@ -48,8 +48,8 @@ async function getF1News(history) {
     "Christian Horner comments",
     "FIA penalty decision",
     "F1 driver contract",
-    "F1 breaking news",
-    "F1 car upgrade"
+    "F1 breaking news latest",
+    "F1 car upgrade confirmed"
   ];
 
   if (isWeekend) {
@@ -62,33 +62,40 @@ async function getF1News(history) {
     ]);
   }
 
-  const topic = topics[Math.floor(Math.random() * topics.length)];
-  
-  // 🛑 THE FIX: Blocking Formula E, IndyCar, and MotoGP from slipping in 🛑
   const exclusions = `-"Formula E" -"IndyCar" -"MotoGP" -"NASCAR" -"WEC" -standings`;
-  const query = `Formula 1 ${topic} ${exclusions} ${f1OnlySites}`;
 
-  try {
-    const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: {
-        q: query,
-        cx: CX_ID,
-        key: GOOGLE_KEY,
-        dateRestrict: "d3",
-        sort: "date",
-        num: 10
-      }
-    });
+  // 🛑 THE FIX: A Retry Loop (Max 3 attempts) 🛑
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const topic = topics[Math.floor(Math.random() * topics.length)];
+    const query = `Formula 1 ${topic} ${exclusions} ${f1OnlySites}`;
+    
+    console.log(`🔍 Attempt ${attempt}/3: Searching for '${topic}'...`);
 
-    const items = res.data.items || [];
-    for (const item of items) {
-      if (!history.has(item.link) && !history.has(item.title)) {
-        return item; 
+    try {
+      const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
+        params: {
+          q: query,
+          cx: CX_ID,
+          key: GOOGLE_KEY,
+          dateRestrict: "d3", // Last 72 hours
+          sort: "date",
+          num: 10
+        }
+      });
+
+      const items = res.data.items || [];
+      for (const item of items) {
+        if (!history.has(item.link) && !history.has(item.title)) {
+          return item; // Found a fresh article! Return it immediately.
+        }
       }
+      console.log(`   No unposted news found for this topic. Trying another...`);
+    } catch (e) {
+      console.error("News Search Error:", e.message);
     }
-  } catch (e) {
-    console.error("News Search Error:", e.message);
   }
+  
+  // If we tried 3 different topics and still found nothing
   return null;
 }
 
@@ -204,7 +211,7 @@ async function run() {
 
   const newsItem = await getF1News(history);
   if (!newsItem) {
-    console.log("No new F1 news found right now. Skipping run.");
+    console.log("❌ No new F1 news found after 3 attempts. Skipping run.");
     return;
   }
 
