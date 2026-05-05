@@ -64,7 +64,6 @@ async function getF1News(history) {
 
   const exclusions = `-"Formula E" -"IndyCar" -"MotoGP" -"NASCAR" -"WEC" -standings`;
 
-  // 🛑 THE FIX: A Retry Loop (Max 3 attempts) 🛑
   for (let attempt = 1; attempt <= 3; attempt++) {
     const topic = topics[Math.floor(Math.random() * topics.length)];
     const query = `Formula 1 ${topic} ${exclusions} ${f1OnlySites}`;
@@ -77,7 +76,7 @@ async function getF1News(history) {
           q: query,
           cx: CX_ID,
           key: GOOGLE_KEY,
-          dateRestrict: "d3", // Last 72 hours
+          dateRestrict: "d3", 
           sort: "date",
           num: 10
         }
@@ -86,7 +85,7 @@ async function getF1News(history) {
       const items = res.data.items || [];
       for (const item of items) {
         if (!history.has(item.link) && !history.has(item.title)) {
-          return item; // Found a fresh article! Return it immediately.
+          return item; 
         }
       }
       console.log(`   No unposted news found for this topic. Trying another...`);
@@ -95,7 +94,6 @@ async function getF1News(history) {
     }
   }
   
-  // If we tried 3 different topics and still found nothing
   return null;
 }
 
@@ -119,7 +117,7 @@ async function processWithGemini(newsItem) {
   3. STRICT 'FORMULA RACERS' FORMATTING:
      For News/Upgrades: 🚨 | [Detailed, objective statement of the news, including important context from the article].
      For Quotes: 🗣️ | [Name]: "Exact quote." [Add a brief follow-up sentence explaining the context if necessary].
-  4. LENGTH RULE: Write a tweet between 150 and 220 characters. It is CRITICAL that you do not exceed 220 characters, as room must be left for the source link.
+  4. LENGTH RULE: Write a tweet between 150 and 200 characters. It is CRITICAL that you do not exceed 200 characters, as room must be left for emojis and source links.
   5. Use only 1 hashtag maximum (e.g., #F1).
   6. EXACT IMAGE MATCH: Provide a simple 2-3 word search query combining the main person/car and their current team (e.g., "Lewis Hamilton Ferrari", "McLaren F1 car").
   
@@ -223,14 +221,13 @@ async function run() {
     return;
   }
 
-  // --- THE NEW LENGTH SAFEGUARD ---
+  // --- EMOJI-SAFE LENGTH GUARD ---
   let safeTweetText = content.tweet;
-  if (safeTweetText.length > 230) {
-    safeTweetText = safeTweetText.substring(0, 227) + "...";
+  if (safeTweetText.length > 210) {
+    safeTweetText = safeTweetText.substring(0, 207) + "...";
     console.log("⚠️ Tweet was too long. Truncated safely to fit API limits.");
   }
 
-  // Inject the source link cleanly at the end of the safe tweet
   const finalTweetText = `${safeTweetText}\n\n📰 Source: ${newsItem.link}`;
 
   console.log(`📝 Tweet Draft: \n${finalTweetText}`);
@@ -242,7 +239,12 @@ async function run() {
     let mediaId = null;
     if (imgPath) {
       console.log("📤 Uploading image to Twitter...");
-      mediaId = await client.v1.uploadMedia(imgPath);
+      try {
+        mediaId = await client.v1.uploadMedia(imgPath);
+      } catch (imgError) {
+        console.log("⚠️ Image rejected by Twitter (likely an unsupported WebP format). Dropping image and continuing...");
+        console.error("   Image Error Details:", imgError.response?.data || imgError.message);
+      }
     }
 
     const tweetPayload = { text: finalTweetText };
@@ -259,7 +261,9 @@ async function run() {
     saveHistory(newsItem.title);
 
   } catch (error) {
-    console.error("Twitter API Error:", error.message);
+    console.error("❌ Twitter API Error:");
+    // This will print the exact reason Twitter rejected the request!
+    console.error(error.response?.data || error.message);
   } finally {
     if (imgPath && fs.existsSync(imgPath)) {
       fs.unlinkSync(imgPath);
