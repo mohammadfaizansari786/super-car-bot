@@ -1,3 +1,4 @@
+
 const { TwitterApi } = require("twitter-api-v2");
 const axios = require("axios");
 const fs = require("fs");
@@ -39,31 +40,35 @@ async function getF1News(history) {
 
   const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
+  // Simplified topics to guarantee we always get hits without confusing Google
   let topics = [
-    "Verstappen interview OR quote",
-    "Hamilton Ferrari news OR interview",
-    "Leclerc Ferrari update OR quote",
-    "Norris McLaren upgrade OR news",
-    "Mercedes F1 official announcement",
-    "Christian Horner statement F1",
-    "FIA penalty investigation F1",
-    "F1 driver contract transfer",
-    "F1 breaking news confirmed",
-    "major car upgrade F1"
+    "Verstappen interview",
+    "Hamilton Ferrari quote",
+    "Leclerc Ferrari news",
+    "Norris McLaren update",
+    "Mercedes F1 announcement",
+    "Christian Horner comments",
+    "FIA penalty decision",
+    "F1 driver contract",
+    "F1 breaking news",
+    "F1 car upgrade"
   ];
 
   if (isWeekend) {
     topics = topics.concat([
-      "post race interview controversial F1",
-      "grid penalty confirmed F1",
-      "crash incident investigation F1",
-      "team radio angry F1",
-      "stewards decision penalty F1"
+      "post race interview F1",
+      "grid penalty F1",
+      "crash incident F1",
+      "team radio F1",
+      "stewards decision F1"
     ]);
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  const query = `Formula 1 ${topic} -standings -results -"race report" -"session complete" ${f1OnlySites}`;
+  
+  // REMOVED the aggressive minus operators (-results) so we don't accidentally block good articles!
+  // We added -standings just to keep pure points lists away.
+  const query = `Formula 1 ${topic} -standings ${f1OnlySites}`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -71,8 +76,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d2",
-        sort: "date",
+        dateRestrict: "d3", // Expanded to 72 hours so it NEVER fails on a slow news day
+        sort: "date",       // Still forces the absolute newest article to the top
         num: 10
       }
     });
@@ -99,7 +104,6 @@ async function processWithGemini(newsItem) {
   const currentDate = new Date().toDateString();
   const currentYear = new Date().getFullYear();
 
-  // PROMPT UPDATED FOR LONGER, MORE DETAILED TWEETS
   const prompt = `You are the admin of 'Formula Racers', a massive and highly respected Formula 1 news account on X (Twitter).
   Today's exact date is ${currentDate} (${currentYear} season).
   Read the news headline and snippet below, and write a tweet that feels 100% human, highly accurate, and detailed.
