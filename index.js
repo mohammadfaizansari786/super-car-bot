@@ -30,7 +30,7 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET NEWS STRICTLY FROM TIER-1 SITES ---
+// --- 1. GET NEWS STRICTLY FROM TIER-1 SITES (F1 ONLY) ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
@@ -63,7 +63,10 @@ async function getF1News(history) {
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  const query = `Formula 1 ${topic} -standings ${f1OnlySites}`;
+  
+  // 🛑 THE FIX: Blocking Formula E, IndyCar, and MotoGP from slipping in 🛑
+  const exclusions = `-"Formula E" -"IndyCar" -"MotoGP" -"NASCAR" -"WEC" -standings`;
+  const query = `Formula 1 ${topic} ${exclusions} ${f1OnlySites}`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -215,7 +218,6 @@ async function run() {
 
   // --- THE NEW LENGTH SAFEGUARD ---
   let safeTweetText = content.tweet;
-  // Maximum safe length for the AI text to leave room for the Source link and Twitter limits
   if (safeTweetText.length > 230) {
     safeTweetText = safeTweetText.substring(0, 227) + "...";
     console.log("⚠️ Tweet was too long. Truncated safely to fit API limits.");
