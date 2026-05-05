@@ -2,7 +2,7 @@ const { TwitterApi } = require("twitter-api-v2");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 
 // --- CONFIGURATION ---
 const HISTORY_FILE = "posted_history.txt";
@@ -30,17 +30,15 @@ function saveHistory(link) {
   fs.appendFileSync(HISTORY_FILE, `${link}\n`);
 }
 
-// --- 1. GET NEWS STRICTLY FROM TIER-1 ACCURATE F1 SITES ---
+// --- 1. GET NEWS STRICTLY FROM TIER-1 SITES ---
 async function getF1News(history) {
   if (!GOOGLE_KEY) return null;
 
   const today = new Date().getDay();
   const isWeekend = [0, 5, 6].includes(today);
 
-  // STRICTLY Tier 1, highly accurate F1 journalism sources
   const f1OnlySites = "(site:racingnews365.com OR site:motorsport.com OR site:autosport.com OR site:the-race.com OR site:skysports.com/f1 OR site:bbc.co.uk/sport/formula1 OR site:formula1.com)";
 
-  // Balanced topics: Hard F1 News + Specific Driver Quotes
   let topics = [
     "Verstappen interview OR quote",
     "Hamilton Ferrari news OR interview",
@@ -56,16 +54,16 @@ async function getF1News(history) {
 
   if (isWeekend) {
     topics = topics.concat([
-      "qualifying session quotes F1",
-      "race winner interview F1",
+      "post race interview controversial F1",
       "grid penalty confirmed F1",
-      "official race results F1",
-      "crash incident investigation F1"
+      "crash incident investigation F1",
+      "team radio angry F1",
+      "stewards decision penalty F1"
     ]);
   }
 
   const topic = topics[Math.floor(Math.random() * topics.length)];
-  const query = `Formula 1 ${topic} ${f1OnlySites}`;
+  const query = `Formula 1 ${topic} -standings -results -"race report" -"session complete" ${f1OnlySites}`;
 
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
@@ -73,8 +71,8 @@ async function getF1News(history) {
         q: query,
         cx: CX_ID,
         key: GOOGLE_KEY,
-        dateRestrict: "d2", // Last 48 hours
-        sort: "date",       // Newest article first
+        dateRestrict: "d2",
+        sort: "date",
         num: 10
       }
     });
@@ -91,29 +89,30 @@ async function getF1News(history) {
   return null;
 }
 
-// --- 2. FORMAT LIKE A PROFESSIONAL HUMAN ADMIN ---
+// --- 2. FORMAT LIKE FORMULA RACERS ---
 async function processWithGemini(newsItem) {
   if (!GEMINI_KEY || GEMINI_KEY === "undefined" || GEMINI_KEY === "") {
-    console.error("🚨 GEMINI_API_KEY is missing! Please check your GitHub Secrets.");
+    console.error("🚨 GEMINI_API_KEY is missing!");
     return null;
   }
 
   const currentDate = new Date().toDateString();
   const currentYear = new Date().getFullYear();
 
-  const prompt = `You are a professional human admin for a top-tier Formula 1 news account on X (Twitter).
+  // PROMPT UPDATED FOR LONGER, MORE DETAILED TWEETS
+  const prompt = `You are the admin of 'Formula Racers', a massive and highly respected Formula 1 news account on X (Twitter).
   Today's exact date is ${currentDate} (${currentYear} season).
-  Read the news headline and snippet below, and write a tweet that feels 100% human, accurate, and straight to the point.
+  Read the news headline and snippet below, and write a tweet that feels 100% human, highly accurate, and detailed.
   
   CRITICAL RULES:
-  1. ZERO AI SPEAK. Never use phrases like "Buckle up," or "Thoughts?". Just deliver the news or the quote cleanly.
-  2. STRICT EMOJI RULE: You may use EXACTLY ONE emoji, and it MUST be the very first character of the tweet (e.g., 🚨 for news or 🗣️ for quotes). Do NOT use any other emojis anywhere else in the text.
-  3. Formatting Examples:
-     🗣️ | Max Verstappen: "It was a tough race today."
-     🚨 | Mercedes confirms a new floor upgrade for Miami.
-  4. Keep the tweet text UNDER 200 CHARACTERS to leave room for the source link.
+  1. ZERO AI SPEAK & ZERO FLUFF. Never use phrases like "Buckle up," or "Thoughts?". Deliver the news with absolute objectivity.
+  2. STRICT EMOJI RULE: Use EXACTLY ONE emoji, and it MUST be the very first character of the tweet. Do NOT use any other emojis anywhere else in the text.
+  3. STRICT 'FORMULA RACERS' FORMATTING:
+     For News/Upgrades: 🚨 | [Detailed, objective statement of the news, including important context from the article].
+     For Quotes: 🗣️ | [Name]: "Exact quote." [Add a brief follow-up sentence explaining the context if necessary].
+  4. LENGTH RULE: Write a longer, more detailed tweet (between 200 and 250 characters). Make it substantial and informative, but STRICTLY do not exceed 250 characters to leave room for the source link.
   5. Use only 1 hashtag maximum (e.g., #F1).
-  6. EXACT IMAGE MATCH: For 'imageQuery', extract the main visual subject of the article so the image matches perfectly. Provide a simple 2-3 word search query combining the person/car and their current team (e.g., "Lewis Hamilton Ferrari", "Toto Wolff Mercedes", "McLaren F1 car").
+  6. EXACT IMAGE MATCH: Provide a simple 2-3 word search query combining the main person/car and their current team (e.g., "Lewis Hamilton Ferrari", "McLaren F1 car").
   
   News Title: ${newsItem.title}
   News Snippet: ${newsItem.snippet}
@@ -124,18 +123,28 @@ async function processWithGemini(newsItem) {
     "imageQuery": "Simple 2-3 word search query for the photo"
   }`;
 
+  const safetySettings = [
+    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  ];
+
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_KEY);
     const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash",
+        safetySettings: safetySettings,
         generationConfig: { responseMimeType: "application/json" }
     });
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanText);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI did not return valid JSON");
+    
+    return JSON.parse(jsonMatch[0]);
 
   } catch (e) {
     console.error("Gemini SDK Error:", e.message);
@@ -153,7 +162,7 @@ async function getImage(query) {
         cx: CX_ID,
         key: GOOGLE_KEY,
         searchType: "image",
-        imgType: "photo", // STRICTLY real photographs
+        imgType: "photo", 
         imgSize: "large",
         num: 3
       }
